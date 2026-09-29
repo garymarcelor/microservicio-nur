@@ -4,6 +4,7 @@ import com.nutrition.msnutritionplanner.domain.planbase.Dia;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBase;
 import com.nutrition.msnutritionplanner.domain.planbase.TiempoDeComida;
 import com.nutrition.msnutritionplanner.domain.planpersonalizado.PlanAlimentarioPersonalizado;
+import com.nutrition.msnutritionplanner.domain.shared.EstadoPlan;
 import com.nutrition.msnutritionplanner.domain.shared.Hora;
 import com.nutrition.msnutritionplanner.domain.shared.Orden;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.DiaJpaEntity;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,7 +36,7 @@ class PlanAlimentarioMapperTest {
     void toDomainBase_ShouldMapToDomainBase() {
         PlanAlimentarioJpaEntity entity = new PlanAlimentarioJpaEntity();
         entity.setId(1);
-        entity.setEstadoPlan("ACTIVO");
+        entity.setEstadoPlan(EstadoPlan.INICIADO);
         entity.setFechaInicioVigencia(LocalDate.now());
         entity.setActivo(true);
         entity.setDias(new ArrayList<>());
@@ -46,7 +48,7 @@ class PlanAlimentarioMapperTest {
 
         TiempoDeComidaJpaEntity tiempo = new TiempoDeComidaJpaEntity();
         tiempo.setId(100);
-        tiempo.setHora("08:00");
+        tiempo.setHora(LocalTime.of(8, 0));
         tiempo.setRecetas(new ArrayList<>());
 
         RecetaJpaEntity receta = new RecetaJpaEntity();
@@ -60,7 +62,7 @@ class PlanAlimentarioMapperTest {
 
         assertNotNull(result);
         assertEquals(1, result.getId());
-        assertEquals("ACTIVO", result.getEstadoPlan());
+        assertEquals(EstadoPlan.INICIADO, result.getEstadoPlan());
         assertEquals(entity.getFechaInicioVigencia(), result.getFechaInicioVigencia());
         assertTrue(result.isActivo());
         assertEquals(1, result.getDias().size());
@@ -68,7 +70,7 @@ class PlanAlimentarioMapperTest {
         assertEquals(1, result.getDias().get(0).getNumOrden().valor());
         assertEquals(1, result.getDias().get(0).getTiemposDeComida().size());
         assertEquals(100, result.getDias().get(0).getTiemposDeComida().get(0).getId());
-        assertEquals("08:00", result.getDias().get(0).getTiemposDeComida().get(0).getHora().valor());
+        assertEquals(LocalTime.of(8, 0), result.getDias().get(0).getTiemposDeComida().get(0).getHora().valor());
         assertEquals(1, result.getDias().get(0).getTiemposDeComida().get(0).getRecetasIds().size());
         assertTrue(result.getDias().get(0).getTiemposDeComida().get(0).getRecetasIds().contains(1000));
     }
@@ -77,7 +79,7 @@ class PlanAlimentarioMapperTest {
     void toDomainPersonalizado_ShouldMapToDomainPersonalizado() {
         PlanAlimentarioJpaEntity entity = new PlanAlimentarioJpaEntity();
         entity.setId(2);
-        entity.setEstadoPlan("CREADO");
+        entity.setEstadoPlan(EstadoPlan.COMPLETO);
         entity.setFechaInicioVigencia(LocalDate.now());
         entity.setDescripcionCambios("Cambios");
         entity.setActivo(false);
@@ -92,7 +94,7 @@ class PlanAlimentarioMapperTest {
         assertNotNull(result);
         assertEquals(2, result.getId());
         assertEquals(1, result.getIdPlanBase());
-        assertEquals("CREADO", result.getEstadoPlan());
+        assertEquals(EstadoPlan.COMPLETO, result.getEstadoPlan());
         assertEquals(entity.getFechaInicioVigencia(), result.getFechaInicioVigencia());
         assertEquals("Cambios", result.getDescripcionCambios());
         assertFalse(result.isActivo());
@@ -101,12 +103,12 @@ class PlanAlimentarioMapperTest {
 
     @Test
     void copyScalarFieldsBase_ShouldCopyFields() {
-        PlanAlimentarioBase plan = PlanAlimentarioBase.reconstruir(1, "ACTIVO", LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioBase plan = PlanAlimentarioBase.reconstruir(1, EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
         PlanAlimentarioJpaEntity destino = new PlanAlimentarioJpaEntity();
         
         planAlimentarioMapper.copyScalarFieldsBase(plan, destino);
 
-        assertEquals("ACTIVO", destino.getEstadoPlan());
+        assertEquals(EstadoPlan.INICIADO, destino.getEstadoPlan());
         assertEquals(plan.getFechaInicioVigencia(), destino.getFechaInicioVigencia());
         assertTrue(destino.isActivo());
         assertNull(destino.getPlanBase());
@@ -114,14 +116,14 @@ class PlanAlimentarioMapperTest {
 
     @Test
     void copyScalarFieldsPersonalizado_ShouldCopyFields() {
-        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(1, 10, "Cambios", "ACTIVO", LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(1, 10, "Cambios", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
         PlanAlimentarioJpaEntity destino = new PlanAlimentarioJpaEntity();
         PlanAlimentarioJpaEntity baseEntity = new PlanAlimentarioJpaEntity();
         baseEntity.setId(10);
 
         planAlimentarioMapper.copyScalarFieldsPersonalizado(plan, destino, baseEntity);
 
-        assertEquals("ACTIVO", destino.getEstadoPlan());
+        assertEquals(EstadoPlan.INICIADO, destino.getEstadoPlan());
         assertEquals(plan.getFechaInicioVigencia(), destino.getFechaInicioVigencia());
         assertEquals("Cambios", destino.getDescripcionCambios());
         assertTrue(destino.isActivo());
@@ -144,8 +146,8 @@ class PlanAlimentarioMapperTest {
         diaExistente.getTiemposDeComida().add(tiempoExistente);
 
         List<TiempoDeComida> tiemposDominio = new ArrayList<>();
-        tiemposDominio.add(TiempoDeComida.reconstruir(10, Hora.of("12:00"), List.of(100)));
-        tiemposDominio.add(TiempoDeComida.reconstruir(null, Hora.of("18:00"), List.of(200)));
+        tiemposDominio.add(TiempoDeComida.reconstruir(10, Hora.of(12, 0), List.of(100)));
+        tiemposDominio.add(TiempoDeComida.reconstruir(null, Hora.of(18, 0), List.of(200)));
 
         List<Dia> diasDominio = new ArrayList<>();
         diasDominio.add(Dia.reconstruir(1, Orden.of(1), tiemposDominio));
@@ -168,12 +170,12 @@ class PlanAlimentarioMapperTest {
         assertEquals(2, updatedDia1.getTiemposDeComida().size());
         
         assertEquals(10, updatedDia1.getTiemposDeComida().get(0).getId());
-        assertEquals("12:00", updatedDia1.getTiemposDeComida().get(0).getHora());
+        assertEquals(LocalTime.of(12, 0), updatedDia1.getTiemposDeComida().get(0).getHora());
         assertEquals(1, updatedDia1.getTiemposDeComida().get(0).getRecetas().size());
         assertEquals(100, updatedDia1.getTiemposDeComida().get(0).getRecetas().get(0).getId());
 
         assertNull(updatedDia1.getTiemposDeComida().get(1).getId());
-        assertEquals("18:00", updatedDia1.getTiemposDeComida().get(1).getHora());
+        assertEquals(LocalTime.of(18, 0), updatedDia1.getTiemposDeComida().get(1).getHora());
         assertEquals(1, updatedDia1.getTiemposDeComida().get(1).getRecetas().size());
         assertEquals(200, updatedDia1.getTiemposDeComida().get(1).getRecetas().get(0).getId());
 
