@@ -4,7 +4,6 @@ import com.nutrition.msnutritionplanner.domain.exceptions.DomainValidationExcept
 import com.nutrition.msnutritionplanner.domain.planbase.Dia;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBase;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBaseRepository;
-import com.nutrition.msnutritionplanner.domain.planbase.TiempoDeComida;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.PlanAlimentarioJpaEntity;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.RecetaJpaEntity;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.repositories.receta.RecetaJpaRepository;
@@ -25,8 +24,8 @@ public class PlanAlimentarioBaseRepositoryImpl implements PlanAlimentarioBaseRep
     private final PlanAlimentarioMapper mapper;
 
     public PlanAlimentarioBaseRepositoryImpl(PlanAlimentarioJpaRepository jpaRepository,
-                                              RecetaJpaRepository recetaJpaRepository,
-                                              PlanAlimentarioMapper mapper) {
+            RecetaJpaRepository recetaJpaRepository,
+            PlanAlimentarioMapper mapper) {
         this.jpaRepository = jpaRepository;
         this.recetaJpaRepository = recetaJpaRepository;
         this.mapper = mapper;
@@ -61,7 +60,8 @@ public class PlanAlimentarioBaseRepositoryImpl implements PlanAlimentarioBaseRep
 
         List<RecetaJpaEntity> recetas = recetaJpaRepository.findByIdInAndActivoTrue(idsRecetas);
         if (recetas.size() != idsRecetas.size()) {
-            throw new DomainValidationException("Una o mas recetas asignadas a un tiempo de comida no existen o estan dadas de baja");
+            throw new DomainValidationException(
+                    "Una o mas recetas asignadas a un tiempo de comida no existen o estan dadas de baja");
         }
         return recetas.stream().collect(Collectors.toMap(RecetaJpaEntity::getId, Function.identity()));
     }

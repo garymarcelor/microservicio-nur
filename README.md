@@ -144,7 +144,62 @@ mvn spring-boot:run
 
 La API queda disponible en `http://localhost:7000`.
 
-## 7. Decisiones y supuestos adicionales
+## 7. Testing
+
+### 7.1 Unit tests (`mvn test`)
+
+Cubren `domain/*` (100% de las clases, sin Spring ni Mockito), un caso de
+uso de ejemplo en `application/*` (Mockito) y un controller de ejemplo en
+`presentation/*` (MockMvc *standalone*). El resto de casos de uso y
+controllers siguen el mismo patrón (ver `PROMPT_TESTS.md`).
+
+```bash
+mvn test
+```
+
+Genera el reporte de cobertura de JaCoCo en `target/site/jacoco/index.html`
+(ábrelo en el navegador). El plugin está configurado para exigir un mínimo
+de **80% de instrucciones cubiertas** al correr `mvn verify` (ver 7.3).
+
+### 7.2 Integration tests (`mvn verify`)
+
+Dos flujos completos, de punta a punta, contra la API HTTP real (Spring
+context completo + base de datos H2 en memoria, ver
+`src/test/resources/application.properties`):
+
+- `PlanAlimentarioBaseFlujoCompletoIT`: ingredientes → receta → plan base →
+  día → tiempo de comida → completar → verificación final.
+- `PlanAlimentarioPersonalizadoFlujoCompletoIT`: plan base `COMPLETO` →
+  plan personalizado derivado → día/tiempo propios → completar →
+  verificación del enlace `idPlanBase` y de que el plan base original no
+  se vio afectado.
+
+```bash
+mvn verify
+```
+
+(`mvn test` NO los ejecuta: `maven-surefire-plugin` excluye `*IT`, y
+`maven-failsafe-plugin` los corre en la fase `integration-test` dentro de
+`mvn verify`.)
+
+### 7.3 Code coverage
+
+```bash
+mvn verify   # corre unit + integration tests y aplica jacoco:check (≥80%)
+open target/site/jacoco/index.html   # (o abrir manualmente en el navegador)
+```
+
+Si el build falla en `jacoco-check`, el reporte HTML indica exactamente qué
+paquete/clase está por debajo del umbral.
+
+### 7.4 Tests generados con IA
+
+Ver **`PROMPT_TESTS.md`** para el detalle de qué se generó con ayuda de IA,
+las reglas de proyecto que se le dieron como contexto, y los prompts
+reutilizables para generar el resto de los tests siguiendo la misma
+convención.
+
+## 8. Decisiones y supuestos adicionales
 
 - El estado del plan (`EstadoPlan`: `INICIADO`, `COMPLETO`, `DESCARTADO`) es
   distinto de la baja lógica (`activo`): el primero es una regla de negocio

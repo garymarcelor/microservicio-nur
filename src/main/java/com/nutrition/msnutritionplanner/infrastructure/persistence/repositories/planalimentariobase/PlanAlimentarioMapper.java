@@ -133,7 +133,11 @@ public class PlanAlimentarioMapper {
             List<RecetaJpaEntity> recetas = tiempoDominio.getRecetasIds().stream()
                     .map(recetasPorId::get)
                     .toList();
-            tiempoEntity.setRecetas(recetas);
+            if (tiempoEntity.getRecetas() == null) {
+                tiempoEntity.setRecetas(new ArrayList<>());
+            }
+            tiempoEntity.getRecetas().clear();
+            tiempoEntity.getRecetas().addAll(recetas);
             nuevaLista.add(tiempoEntity);
         }
 

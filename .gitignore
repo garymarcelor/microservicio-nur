@@ -1,5 +1,16 @@
 target/
 *.class
+.vscode/
+
+# Gradle
+.gradle/
+build/
+ 
+# IntelliJ IDEA
 .idea/
 *.iml
-.vscode/
+ 
+# Eclipse
+.classpath
+.project
+.settings/
