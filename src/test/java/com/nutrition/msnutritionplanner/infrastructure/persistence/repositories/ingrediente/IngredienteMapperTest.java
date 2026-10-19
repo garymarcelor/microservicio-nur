@@ -1,63 +1,70 @@
 package com.nutrition.msnutritionplanner.infrastructure.persistence.repositories.ingrediente;
 
 import com.nutrition.msnutritionplanner.domain.ingrediente.Ingrediente;
+import com.nutrition.msnutritionplanner.domain.shared.TipoIngrediente;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.IngredienteJpaEntity;
+import com.nutrition.msnutritionplanner.infrastructure.shared.ModelMapperConfig;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.modelmapper.ModelMapper;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("IngredienteMapper")
 class IngredienteMapperTest {
 
-    private ModelMapper modelMapper;
-    private IngredienteMapper ingredienteMapper;
+    private IngredienteMapper mapper;
 
     @BeforeEach
     void setUp() {
-        modelMapper = Mockito.mock(ModelMapper.class);
-        ingredienteMapper = new IngredienteMapper(modelMapper);
+        ModelMapper modelMapper = new ModelMapperConfig().modelMapper();
+        mapper = new IngredienteMapper(modelMapper);
     }
 
     @Test
-    void toJpa_ShouldMapToJpaEntity() {
-        Ingrediente ingrediente = Mockito.mock(Ingrediente.class);
-        IngredienteJpaEntity expectedEntity = new IngredienteJpaEntity();
+    @DisplayName("toJpa() mapea de dominio a entidad JPA")
+    void toJpa() {
+        Ingrediente dominio = Ingrediente.reconstruir(1, "Palta", "Fresca", TipoIngrediente.GRASA, true);
 
-        when(modelMapper.map(ingrediente, IngredienteJpaEntity.class)).thenReturn(expectedEntity);
+        IngredienteJpaEntity jpa = mapper.toJpa(dominio);
 
-        IngredienteJpaEntity result = ingredienteMapper.toJpa(ingrediente);
-
-        assertNotNull(result);
-        assertEquals(expectedEntity, result);
-        verify(modelMapper).map(ingrediente, IngredienteJpaEntity.class);
+        assertThat(jpa.getId()).isEqualTo(1);
+        assertThat(jpa.getNombre()).isEqualTo("Palta");
+        assertThat(jpa.getDescripcion()).isEqualTo("Fresca");
+        assertThat(jpa.getTipo()).isEqualTo(TipoIngrediente.GRASA);
+        assertThat(jpa.isActivo()).isTrue();
     }
 
     @Test
-    void copyToJpa_ShouldCopyFieldsToJpaEntity() {
-        Ingrediente ingrediente = Mockito.mock(Ingrediente.class);
+    @DisplayName("toDomain() mapea de entidad JPA a dominio")
+    void toDomain() {
+        IngredienteJpaEntity jpa = new IngredienteJpaEntity();
+        jpa.setId(2);
+        jpa.setNombre("Manzana");
+        jpa.setDescripcion("Roja");
+        jpa.setTipo(TipoIngrediente.FRUTA);
+        jpa.setActivo(true);
+
+        Ingrediente dominio = mapper.toDomain(jpa);
+
+        assertThat(dominio.getId()).isEqualTo(2);
+        assertThat(dominio.getNombre()).isEqualTo("Manzana");
+        assertThat(dominio.getDescripcion()).isEqualTo("Roja");
+        assertThat(dominio.getTipo()).isEqualTo(TipoIngrediente.FRUTA);
+        assertThat(dominio.isActivo()).isTrue();
+    }
+
+    @Test
+    @DisplayName("copyToJpa() copia los datos del dominio a una entidad destino")
+    void copyToJpa() {
+        Ingrediente dominio = Ingrediente.reconstruir(1, "Palta Modificada", "Nueva desc", TipoIngrediente.GRASA, true);
         IngredienteJpaEntity destino = new IngredienteJpaEntity();
+        destino.setId(1);
 
-        ingredienteMapper.copyToJpa(ingrediente, destino);
+        mapper.copyToJpa(dominio, destino);
 
-        verify(modelMapper).map(ingrediente, destino);
-    }
-
-    @Test
-    void toDomain_ShouldMapToDomain() {
-        IngredienteJpaEntity entity = new IngredienteJpaEntity();
-        Ingrediente expectedIngrediente = Mockito.mock(Ingrediente.class);
-
-        when(modelMapper.map(entity, Ingrediente.class)).thenReturn(expectedIngrediente);
-
-        Ingrediente result = ingredienteMapper.toDomain(entity);
-
-        assertNotNull(result);
-        assertEquals(expectedIngrediente, result);
-        verify(modelMapper).map(entity, Ingrediente.class);
+        assertThat(destino.getNombre()).isEqualTo("Palta Modificada");
+        assertThat(destino.getDescripcion()).isEqualTo("Nueva desc");
     }
 }

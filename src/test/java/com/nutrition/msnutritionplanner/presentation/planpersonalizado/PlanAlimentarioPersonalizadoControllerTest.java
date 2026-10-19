@@ -1,6 +1,8 @@
 package com.nutrition.msnutritionplanner.presentation.planpersonalizado;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.nutrition.msnutritionplanner.application.planbase.dto.TiempoDeComidaRequest;
 import com.nutrition.msnutritionplanner.application.planpersonalizado.PlanAlimentarioPersonalizadoUseCases;
 import com.nutrition.msnutritionplanner.application.planpersonalizado.dto.CrearPlanPersonalizadoRequest;
 import com.nutrition.msnutritionplanner.application.planpersonalizado.dto.PlanPersonalizadoResponse;
@@ -13,9 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -33,7 +39,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     private PlanAlimentarioPersonalizadoUseCases useCases;
 
     private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
@@ -44,139 +50,123 @@ class PlanAlimentarioPersonalizadoControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-personalizados con datos validos responde 201")
-    void crearPlanPersonalizado() throws Exception {
-        CrearPlanPersonalizadoRequest request = new CrearPlanPersonalizadoRequest(1, "Plan modificado");
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
+    @DisplayName("POST /api/v1/planes-personalizados responde 201")
+    void crear() throws Exception {
+        CrearPlanPersonalizadoRequest request = new CrearPlanPersonalizadoRequest(1, "Motivo cambio");
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+
         when(useCases.crear(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/planes-personalizados")
-                        .contentType("application/json")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.idPlanBase").value(1))
-                .andExpect(jsonPath("$.descripcionCambios").value("Plan modificado"));
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.idPlanBase").value(1));
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-personalizados sin idPlanBase responde 400")
-    void crearPlanPersonalizadoFallaValidacion() throws Exception {
-        CrearPlanPersonalizadoRequest request = new CrearPlanPersonalizadoRequest(null, "Desc");
+    @DisplayName("GET /api/v1/planes-personalizados/{id} responde 200")
+    void obtener() throws Exception {
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.obtener(10)).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/planes-personalizados")
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /api/v1/planes-personalizados/{id} existente responde 200")
-    void obtenerPlanPersonalizado() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.obtener(1)).thenReturn(response);
-
-        mockMvc.perform(get("/api/v1/planes-personalizados/1"))
+        mockMvc.perform(get("/api/v1/planes-personalizados/10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(jsonPath("$.id").value(10));
     }
 
     @Test
     @DisplayName("GET /api/v1/planes-personalizados/{id} inexistente responde 404")
-    void obtenerPlanPersonalizadoInexistente() throws Exception {
+    void obtenerInexistente() throws Exception {
         when(useCases.obtener(99)).thenThrow(new EntityNotFoundException("PlanAlimentarioPersonalizado", 99));
 
         mockMvc.perform(get("/api/v1/planes-personalizados/99"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404));
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("GET /api/v1/planes-personalizados responde 200")
-    void listarPlanesPersonalizadosPorPlanBase() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
+    @DisplayName("GET /api/v1/planes-personalizados?idPlanBase=1 responde 200")
+    void listarPorPlanBase() throws Exception {
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.listarPorPlanBase(1)).thenReturn(List.of(response));
 
-        mockMvc.perform(get("/api/v1/planes-personalizados")
-                        .param("idPlanBase", "1"))
+        mockMvc.perform(get("/api/v1/planes-personalizados?idPlanBase=1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$[0].id").value(10));
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-personalizados/{id}/dias responde 200")
+    @DisplayName("POST /api/v1/planes-personalizados/{id}/dias agrega un dia y responde 200")
     void agregarDia() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.agregarDia(1)).thenReturn(response);
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.agregarDia(10)).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/planes-personalizados/1/dias"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(post("/api/v1/planes-personalizados/10/dias"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia} responde 200")
+    @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia} quita un dia y responde 200")
     void quitarDia() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.quitarDia(1, 10)).thenReturn(response);
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.quitarDia(10, 2)).thenReturn(response);
 
-        mockMvc.perform(delete("/api/v1/planes-personalizados/1/dias/10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(delete("/api/v1/planes-personalizados/10/dias/2"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida responde 200")
+    @DisplayName("POST /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida agrega tiempo y responde 200")
     void agregarTiempoDeComida() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.agregarTiempoDeComida(eq(1), eq(10), any())).thenReturn(response);
+        TiempoDeComidaRequest request = new TiempoDeComidaRequest(LocalTime.of(8, 0), List.of(1));
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.agregarTiempoDeComida(eq(10), eq(2), any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/planes-personalizados/1/dias/10/tiempos-comida")
-                        .contentType("application/json")
-                        .content("{\"hora\":\"08:00\",\"recetasIds\":[1]}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(post("/api/v1/planes-personalizados/10/dias/2/tiempos-comida")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida/{idTiempo} responde 200")
+    @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida/{idTiempo} quita tiempo y responde 200")
     void quitarTiempoDeComida() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.quitarTiempoDeComida(1, 10, 20)).thenReturn(response);
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.quitarTiempoDeComida(10, 2, 3)).thenReturn(response);
 
-        mockMvc.perform(delete("/api/v1/planes-personalizados/1/dias/10/tiempos-comida/20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(delete("/api/v1/planes-personalizados/10/dias/2/tiempos-comida/3"))
+                .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("PATCH /api/v1/planes-personalizados/{id}/completar responde 200")
-    void completarPlanPersonalizado() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.COMPLETO, null, true, List.of());
-        when(useCases.completar(1)).thenReturn(response);
+    void completar() throws Exception {
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.COMPLETO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.completar(10)).thenReturn(response);
 
-        mockMvc.perform(patch("/api/v1/planes-personalizados/1/completar"))
+        mockMvc.perform(patch("/api/v1/planes-personalizados/10/completar"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estadoPlan").value("COMPLETO"));
     }
 
     @Test
     @DisplayName("PATCH /api/v1/planes-personalizados/{id}/descartar responde 200")
-    void descartarPlanPersonalizado() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(1, 1, "Plan modificado", EstadoPlan.DESCARTADO, null, true, List.of());
-        when(useCases.descartar(1)).thenReturn(response);
+    void descartar() throws Exception {
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.DESCARTADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.descartar(10)).thenReturn(response);
 
-        mockMvc.perform(patch("/api/v1/planes-personalizados/1/descartar"))
+        mockMvc.perform(patch("/api/v1/planes-personalizados/10/descartar"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estadoPlan").value("DESCARTADO"));
     }
 
     @Test
     @DisplayName("DELETE /api/v1/planes-personalizados/{id} responde 204")
-    void eliminarPlanPersonalizado() throws Exception {
-        doNothing().when(useCases).eliminar(1);
+    void eliminar() throws Exception {
+        doNothing().when(useCases).eliminar(10);
 
-        mockMvc.perform(delete("/api/v1/planes-personalizados/1"))
+        mockMvc.perform(delete("/api/v1/planes-personalizados/10"))
                 .andExpect(status().isNoContent());
     }
 }

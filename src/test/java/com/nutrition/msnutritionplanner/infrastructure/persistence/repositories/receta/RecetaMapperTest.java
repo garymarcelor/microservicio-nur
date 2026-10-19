@@ -3,63 +3,62 @@ package com.nutrition.msnutritionplanner.infrastructure.persistence.repositories
 import com.nutrition.msnutritionplanner.domain.receta.Receta;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.IngredienteJpaEntity;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.RecetaJpaEntity;
+import com.nutrition.msnutritionplanner.infrastructure.shared.ModelMapperConfig;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.modelmapper.ModelMapper;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("RecetaMapper")
 class RecetaMapperTest {
 
-    private ModelMapper modelMapper;
-    private RecetaMapper recetaMapper;
+    private RecetaMapper mapper;
 
     @BeforeEach
     void setUp() {
-        modelMapper = Mockito.mock(ModelMapper.class);
-        recetaMapper = new RecetaMapper(modelMapper);
+        ModelMapper modelMapper = new ModelMapperConfig().modelMapper();
+        mapper = new RecetaMapper(modelMapper);
     }
 
     @Test
-    void toDomain_ShouldMapToDomain() {
+    @DisplayName("toDomain() convierte una RecetaJpaEntity con sus ingredientes a dominio")
+    void toDomain() {
+        IngredienteJpaEntity ing1 = new IngredienteJpaEntity();
+        ing1.setId(100);
+
+        IngredienteJpaEntity ing2 = new IngredienteJpaEntity();
+        ing2.setId(101);
+
         RecetaJpaEntity entity = new RecetaJpaEntity();
         entity.setId(1);
-        entity.setNombre("Receta 1");
-        entity.setInstruccion("Instruccion 1");
+        entity.setNombre("Ensalada");
+        entity.setInstruccion("Mezclar");
         entity.setActivo(true);
+        entity.setIngredientes(List.of(ing1, ing2));
 
-        IngredienteJpaEntity ingrediente1 = new IngredienteJpaEntity();
-        ingrediente1.setId(10);
-        IngredienteJpaEntity ingrediente2 = new IngredienteJpaEntity();
-        ingrediente2.setId(20);
+        Receta receta = mapper.toDomain(entity);
 
-        entity.setIngredientes(List.of(ingrediente1, ingrediente2));
-
-        Receta result = recetaMapper.toDomain(entity);
-
-        assertNotNull(result);
-        assertEquals(1, result.getId());
-        assertEquals("Receta 1", result.getNombre());
-        assertEquals("Instruccion 1", result.getInstruccion());
-        assertTrue(result.isActivo());
-        assertEquals(2, result.getIngredientesIds().size());
-        assertTrue(result.getIngredientesIds().contains(10));
-        assertTrue(result.getIngredientesIds().contains(20));
+        assertThat(receta.getId()).isEqualTo(1);
+        assertThat(receta.getNombre()).isEqualTo("Ensalada");
+        assertThat(receta.getInstruccion()).isEqualTo("Mezclar");
+        assertThat(receta.isActivo()).isTrue();
+        assertThat(receta.getIngredientesIds()).containsExactly(100, 101);
     }
 
     @Test
-    void copyScalarFields_ShouldCopyFieldsToJpaEntity() {
-        Receta receta = Mockito.mock(Receta.class);
+    @DisplayName("copyScalarFields() copia los campos escalares de Receta a la entidad JPA")
+    void copyScalarFields() {
+        Receta receta = Receta.reconstruir(1, "Ensalada Nueva", "Instruccion nueva", true, List.of(100));
         RecetaJpaEntity destino = new RecetaJpaEntity();
 
-        recetaMapper.copyScalarFields(receta, destino);
+        mapper.copyScalarFields(receta, destino);
 
-        verify(modelMapper).map(receta, destino);
+        assertThat(destino.getNombre()).isEqualTo("Ensalada Nueva");
+        assertThat(destino.getInstruccion()).isEqualTo("Instruccion nueva");
+        assertThat(destino.isActivo()).isTrue();
     }
 }

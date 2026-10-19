@@ -22,12 +22,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * Ejemplo de unit test de un caso de uso (capa application): el
- * repositorio (puerto de dominio) se mockea con Mockito, no se toca
- * ninguna base de datos real. Este es el patron a replicar para el
- * resto de casos de uso (Receta, PlanAlimentarioBase, PlanAlimentarioPersonalizado).
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Casos de uso: Ingrediente")
 class IngredienteUseCasesTest {
@@ -57,6 +51,32 @@ class IngredienteUseCasesTest {
         assertThat(response.id()).isEqualTo(1);
         assertThat(response.nombre()).isEqualTo("Palta");
         verify(ingredienteRepository, times(1)).guardar(any(Ingrediente.class));
+    }
+
+    @Test
+    @DisplayName("actualizar() modifica el ingrediente existente y lo persiste")
+    void actualizaIngrediente() {
+        Ingrediente existente = Ingrediente.reconstruir(1, "Palta", "Palta fresca", TipoIngrediente.GRASA, true);
+        when(ingredienteRepository.buscarPorId(1)).thenReturn(Optional.of(existente));
+        when(ingredienteRepository.guardar(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        IngredienteRequest request = new IngredienteRequest("Palta Hass", "Palta madura", TipoIngrediente.GRASA);
+        IngredienteResponse response = useCases.actualizar(1, request);
+
+        assertThat(response.nombre()).isEqualTo("Palta Hass");
+        assertThat(response.descripcion()).isEqualTo("Palta madura");
+    }
+
+    @Test
+    @DisplayName("obtener() retorna el ingrediente existente")
+    void obtieneIngrediente() {
+        Ingrediente existente = Ingrediente.reconstruir(1, "Palta", "Palta fresca", TipoIngrediente.GRASA, true);
+        when(ingredienteRepository.buscarPorId(1)).thenReturn(Optional.of(existente));
+
+        IngredienteResponse response = useCases.obtener(1);
+
+        assertThat(response.id()).isEqualTo(1);
+        assertThat(response.nombre()).isEqualTo("Palta");
     }
 
     @Test

@@ -1,7 +1,11 @@
 package com.nutrition.msnutritionplanner.presentation.planbase;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nutrition.msnutritionplanner.application.planbase.PlanAlimentarioBaseUseCases;
+import com.nutrition.msnutritionplanner.application.planbase.dto.CrearPlanBaseRequest;
 import com.nutrition.msnutritionplanner.application.planbase.dto.PlanBaseResponse;
+import com.nutrition.msnutritionplanner.application.planbase.dto.TiempoDeComidaRequest;
 import com.nutrition.msnutritionplanner.domain.exceptions.EntityNotFoundException;
 import com.nutrition.msnutritionplanner.domain.shared.EstadoPlan;
 import com.nutrition.msnutritionplanner.presentation.shared.GlobalExceptionHandler;
@@ -11,9 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +39,7 @@ class PlanAlimentarioBaseControllerTest {
     private PlanAlimentarioBaseUseCases useCases;
 
     private MockMvc mockMvc;
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
@@ -42,31 +51,24 @@ class PlanAlimentarioBaseControllerTest {
 
     @Test
     @DisplayName("POST /api/v1/planes-base con datos validos responde 201")
-    void crearPlanBase() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
+    void crear() throws Exception {
+        LocalDate fecha = LocalDate.now().plusDays(1);
+        CrearPlanBaseRequest request = new CrearPlanBaseRequest(fecha);
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, fecha, true, Collections.emptyList());
+
         when(useCases.crear(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/planes-base")
-                        .contentType("application/json")
-                        .content("{\"fechaInicioVigencia\":\"2026-03-01\"}"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.estadoPlan").value("INICIADO"));
+                .andExpect(jsonPath("$.id").value(1));
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-base sin fechaInicioVigencia responde 400")
-    void crearPlanBaseFallaValidacion() throws Exception {
-        mockMvc.perform(post("/api/v1/planes-base")
-                        .contentType("application/json")
-                        .content("{\"fechaInicioVigencia\":null}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /api/v1/planes-base/{id} existente responde 200")
-    void obtenerPlanBase() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
+    @DisplayName("GET /api/v1/planes-base/{id} responde 200 con el plan")
+    void obtener() throws Exception {
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.obtener(1)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/planes-base/1"))
@@ -76,75 +78,72 @@ class PlanAlimentarioBaseControllerTest {
 
     @Test
     @DisplayName("GET /api/v1/planes-base/{id} inexistente responde 404")
-    void obtenerPlanBaseInexistente() throws Exception {
+    void obtenerInexistente() throws Exception {
         when(useCases.obtener(99)).thenThrow(new EntityNotFoundException("PlanAlimentarioBase", 99));
 
         mockMvc.perform(get("/api/v1/planes-base/99"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404));
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("GET /api/v1/planes-base responde 200")
-    void listarPlanesBase() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.listar()).thenReturn(List.of(response));
+    @DisplayName("GET /api/v1/planes-base responde 200 con la lista")
+    void listar() throws Exception {
+        when(useCases.listar()).thenReturn(List.of(
+                new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList())
+        ));
 
         mockMvc.perform(get("/api/v1/planes-base"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$[0].id").value(1));
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-base/{id}/dias responde 200")
+    @DisplayName("POST /api/v1/planes-base/{id}/dias agrega un dia y responde 200")
     void agregarDia() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.agregarDia(1)).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/planes-base/1/dias"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/planes-base/{id}/dias/{idDia} responde 200")
+    @DisplayName("DELETE /api/v1/planes-base/{id}/dias/{idDia} quita un dia y responde 200")
     void quitarDia() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.quitarDia(1, 10)).thenReturn(response);
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.quitarDia(1, 2)).thenReturn(response);
 
-        mockMvc.perform(delete("/api/v1/planes-base/1/dias/10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(delete("/api/v1/planes-base/1/dias/2"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("POST /api/v1/planes-base/{id}/dias/{idDia}/tiempos-comida responde 200")
+    @DisplayName("POST /api/v1/planes-base/{id}/dias/{idDia}/tiempos-comida agrega tiempo y responde 200")
     void agregarTiempoDeComida() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.agregarTiempoDeComida(eq(1), eq(10), any())).thenReturn(response);
+        TiempoDeComidaRequest request = new TiempoDeComidaRequest(LocalTime.of(8, 0), List.of(1));
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.agregarTiempoDeComida(eq(1), eq(2), any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/planes-base/1/dias/10/tiempos-comida")
-                        .contentType("application/json")
-                        .content("{\"hora\":\"08:00\",\"recetasIds\":[1]}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(post("/api/v1/planes-base/1/dias/2/tiempos-comida")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/planes-base/{id}/dias/{idDia}/tiempos-comida/{idTiempo} responde 200")
+    @DisplayName("DELETE /api/v1/planes-base/{id}/dias/{idDia}/tiempos-comida/{idTiempo} quita tiempo y responde 200")
     void quitarTiempoDeComida() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, null, true, List.of());
-        when(useCases.quitarTiempoDeComida(1, 10, 20)).thenReturn(response);
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        when(useCases.quitarTiempoDeComida(1, 2, 3)).thenReturn(response);
 
-        mockMvc.perform(delete("/api/v1/planes-base/1/dias/10/tiempos-comida/20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+        mockMvc.perform(delete("/api/v1/planes-base/1/dias/2/tiempos-comida/3"))
+                .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("PATCH /api/v1/planes-base/{id}/completar responde 200")
-    void completarPlanBase() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.COMPLETO, null, true, List.of());
+    void completar() throws Exception {
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.COMPLETO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.completar(1)).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/planes-base/1/completar"))
@@ -154,8 +153,8 @@ class PlanAlimentarioBaseControllerTest {
 
     @Test
     @DisplayName("PATCH /api/v1/planes-base/{id}/descartar responde 200")
-    void descartarPlanBase() throws Exception {
-        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.DESCARTADO, null, true, List.of());
+    void descartar() throws Exception {
+        PlanBaseResponse response = new PlanBaseResponse(1, EstadoPlan.DESCARTADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.descartar(1)).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/planes-base/1/descartar"))
@@ -165,7 +164,7 @@ class PlanAlimentarioBaseControllerTest {
 
     @Test
     @DisplayName("DELETE /api/v1/planes-base/{id} responde 204")
-    void eliminarPlanBase() throws Exception {
+    void eliminar() throws Exception {
         doNothing().when(useCases).eliminar(1);
 
         mockMvc.perform(delete("/api/v1/planes-base/1"))

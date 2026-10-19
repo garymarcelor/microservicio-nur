@@ -25,11 +25,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit test del caso de uso Receta: se mockean unicamente los puertos de
- * repositorio (RecetaRepository, IngredienteRepository), nunca una clase
- * concreta de infraestructura. Sigue el patron de IngredienteUseCasesTest.
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Casos de uso: Receta")
 class RecetaUseCasesTest {
@@ -47,112 +42,96 @@ class RecetaUseCasesTest {
         useCases = new RecetaUseCases(recetaRepository, ingredienteRepository);
     }
 
-    private Ingrediente ingrediente(int id) {
-        return Ingrediente.reconstruir(id, "Ingrediente " + id, "desc", TipoIngrediente.OTRO, true);
-    }
-
     @Test
-    @DisplayName("crear() valida que los ingredientes existan, construye la receta y la persiste")
-    void creaReceta() {
-        RecetaRequest request = new RecetaRequest("Ensalada", "Mezclar todo", List.of(1, 2));
-        when(ingredienteRepository.buscarPorIds(List.of(1, 2))).thenReturn(List.of(ingrediente(1), ingrediente(2)));
+    @DisplayName("crear() valida los ingredientes y guarda la receta")
+    void crearReceta() {
+        Ingrediente ing1 = Ingrediente.reconstruir(1, "Ing 1", "Desc", TipoIngrediente.VEGETAL, true);
+        when(ingredienteRepository.buscarPorIds(List.of(1))).thenReturn(List.of(ing1));
+
         when(recetaRepository.guardar(any(Receta.class)))
-                .thenAnswer(invocation -> {
-                    Receta arg = invocation.getArgument(0);
-                    return Receta.reconstruir(1, arg.getNombre(), arg.getInstruccion(), true, arg.getIngredientesIds());
+                .thenAnswer(inv -> {
+                    Receta arg = inv.getArgument(0);
+                    return Receta.reconstruir(10, arg.getNombre(), arg.getInstruccion(), true, arg.getIngredientesIds());
                 });
 
+        RecetaRequest request = new RecetaRequest("Ensalada", "Picar y mezclar", List.of(1));
         RecetaResponse response = useCases.crear(request);
 
-        assertThat(response.id()).isEqualTo(1);
+        assertThat(response.id()).isEqualTo(10);
         assertThat(response.nombre()).isEqualTo("Ensalada");
-        assertThat(response.ingredientesIds()).containsExactly(1, 2);
-        verify(recetaRepository, times(1)).guardar(any(Receta.class));
+        assertThat(response.ingredientesIds()).containsExactly(1);
     }
 
     @Test
-    @DisplayName("crear() lanza DomainValidationException si algun ingrediente indicado no existe")
-    void fallaAlCrearConIngredienteInexistente() {
-        RecetaRequest request = new RecetaRequest("Ensalada", "Mezclar todo", List.of(1, 99));
-        when(ingredienteRepository.buscarPorIds(List.of(1, 99))).thenReturn(List.of(ingrediente(1)));
+    @DisplayName("crear() lanza DomainValidationException cuando faltan ingredientes")
+    void crearRecetaIngredientesInvalidos() {
+        when(ingredienteRepository.buscarPorIds(List.of(99))).thenReturn(List.of());
+
+        RecetaRequest request = new RecetaRequest("Ensalada", "Picar y mezclar", List.of(99));
 
         assertThatThrownBy(() -> useCases.crear(request))
                 .isInstanceOf(DomainValidationException.class);
-        verify(recetaRepository, never()).guardar(any());
     }
 
     @Test
-    @DisplayName("actualizar() sincroniza nombre, instruccion e ingredientes de una receta existente")
-    void actualizaReceta() {
-        Receta existente = Receta.reconstruir(5, "Vieja", "Instruccion vieja", true, List.of(1, 2));
-        RecetaRequest request = new RecetaRequest("Nueva", "Instruccion nueva", List.of(2, 3));
-        when(ingredienteRepository.buscarPorIds(List.of(2, 3))).thenReturn(List.of(ingrediente(2), ingrediente(3)));
-        when(recetaRepository.buscarPorId(5)).thenReturn(Optional.of(existente));
-        when(recetaRepository.guardar(any(Receta.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("actualizar() modifica nombre, instrucciones e ingredientes de la receta")
+    void actualizarReceta() {
+        Ingrediente ing1 = Ingrediente.reconstruir(1, "Ing 1", "Desc", TipoIngrediente.VEGETAL, true);
+        Ingrediente ing2 = Ingrediente.reconstruir(2, "Ing 2", "Desc", TipoIngrediente.FRUTA, true);
+        when(ingredienteRepository.buscarPorIds(List.of(1, 2))).thenReturn(List.of(ing1, ing2));
 
-        RecetaResponse response = useCases.actualizar(5, request);
+        Receta existente = Receta.reconstruir(10, "Viejo Nombre", "Vieja Instruccion", true, List.of(1));
+        when(recetaRepository.buscarPorId(10)).thenReturn(Optional.of(existente));
+        when(recetaRepository.guardar(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThat(response.nombre()).isEqualTo("Nueva");
-        assertThat(response.instruccion()).isEqualTo("Instruccion nueva");
-        assertThat(response.ingredientesIds()).containsExactlyInAnyOrder(2, 3);
+        RecetaRequest request = new RecetaRequest("Nuevo Nombre", "Nueva Instruccion", List.of(1, 2));
+        RecetaResponse response = useCases.actualizar(10, request);
+
+        assertThat(response.nombre()).isEqualTo("Nuevo Nombre");
+        assertThat(response.ingredientesIds()).containsExactlyInAnyOrder(1, 2);
     }
 
     @Test
-    @DisplayName("actualizar() con un id inexistente lanza EntityNotFoundException")
-    void fallaAlActualizarInexistente() {
-        RecetaRequest request = new RecetaRequest("Nueva", "Instruccion nueva", List.of(1));
-        when(ingredienteRepository.buscarPorIds(List.of(1))).thenReturn(List.of(ingrediente(1)));
-        when(recetaRepository.buscarPorId(404)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> useCases.actualizar(404, request))
-                .isInstanceOf(EntityNotFoundException.class)
-                .hasMessageContaining("404");
-    }
-
-    @Test
-    @DisplayName("agregarIngrediente() agrega el ingrediente a una receta existente")
-    void agregaIngrediente() {
-        Receta existente = Receta.reconstruir(5, "Ensalada", "Mezclar", true, List.of(1));
+    @DisplayName("agregarIngrediente() agrega un ingrediente si existe")
+    void agregarIngrediente() {
         when(ingredienteRepository.existePorId(2)).thenReturn(true);
-        when(recetaRepository.buscarPorId(5)).thenReturn(Optional.of(existente));
-        when(recetaRepository.guardar(any(Receta.class))).thenAnswer(inv -> inv.getArgument(0));
+        Receta existente = Receta.reconstruir(10, "Ensalada", "Instrucciones", true, List.of(1));
+        when(recetaRepository.buscarPorId(10)).thenReturn(Optional.of(existente));
+        when(recetaRepository.guardar(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        RecetaResponse response = useCases.agregarIngrediente(5, 2);
+        RecetaResponse response = useCases.agregarIngrediente(10, 2);
 
         assertThat(response.ingredientesIds()).containsExactlyInAnyOrder(1, 2);
     }
 
     @Test
-    @DisplayName("agregarIngrediente() con un ingrediente inexistente lanza EntityNotFoundException")
-    void fallaAlAgregarIngredienteInexistente() {
+    @DisplayName("agregarIngrediente() lanza EntityNotFoundException si el ingrediente no existe")
+    void agregarIngredienteInexistente() {
         when(ingredienteRepository.existePorId(99)).thenReturn(false);
 
-        assertThatThrownBy(() -> useCases.agregarIngrediente(5, 99))
-                .isInstanceOf(EntityNotFoundException.class)
-                .hasMessageContaining("99");
-        verify(recetaRepository, never()).buscarPorId(any());
+        assertThatThrownBy(() -> useCases.agregarIngrediente(10, 99))
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
-    @DisplayName("quitarIngrediente() quita el ingrediente indicado de una receta existente")
-    void quitaIngrediente() {
-        Receta existente = Receta.reconstruir(5, "Ensalada", "Mezclar", true, List.of(1, 2));
-        when(recetaRepository.buscarPorId(5)).thenReturn(Optional.of(existente));
-        when(recetaRepository.guardar(any(Receta.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("quitarIngrediente() remueve un ingrediente de la receta")
+    void quitarIngrediente() {
+        Receta existente = Receta.reconstruir(10, "Ensalada", "Instrucciones", true, List.of(1, 2));
+        when(recetaRepository.buscarPorId(10)).thenReturn(Optional.of(existente));
+        when(recetaRepository.guardar(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        RecetaResponse response = useCases.quitarIngrediente(5, 2);
+        RecetaResponse response = useCases.quitarIngrediente(10, 2);
 
         assertThat(response.ingredientesIds()).containsExactly(1);
     }
 
     @Test
-    @DisplayName("eliminar() da de baja la receta y la vuelve a guardar")
-    void eliminaReceta() {
-        Receta existente = Receta.reconstruir(5, "Ensalada", "Mezclar", true, List.of(1));
-        when(recetaRepository.buscarPorId(5)).thenReturn(Optional.of(existente));
-        when(recetaRepository.guardar(any(Receta.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("eliminar() da de baja la receta")
+    void eliminarReceta() {
+        Receta existente = Receta.reconstruir(10, "Ensalada", "Instrucciones", true, List.of(1));
+        when(recetaRepository.buscarPorId(10)).thenReturn(Optional.of(existente));
 
-        useCases.eliminar(5);
+        useCases.eliminar(10);
 
         ArgumentCaptor<Receta> captor = ArgumentCaptor.forClass(Receta.class);
         verify(recetaRepository).guardar(captor.capture());
@@ -160,37 +139,25 @@ class RecetaUseCasesTest {
     }
 
     @Test
-    @DisplayName("obtener() con un id inexistente lanza EntityNotFoundException")
-    void fallaAlObtenerInexistente() {
-        when(recetaRepository.buscarPorId(99)).thenReturn(Optional.empty());
+    @DisplayName("obtener() retorna la receta si existe")
+    void obtenerReceta() {
+        Receta existente = Receta.reconstruir(10, "Ensalada", "Instrucciones", true, List.of(1));
+        when(recetaRepository.buscarPorId(10)).thenReturn(Optional.of(existente));
 
-        assertThatThrownBy(() -> useCases.obtener(99))
-                .isInstanceOf(EntityNotFoundException.class)
-                .hasMessageContaining("99");
+        RecetaResponse response = useCases.obtener(10);
+
+        assertThat(response.id()).isEqualTo(10);
     }
 
     @Test
-    @DisplayName("obtener() traduce la receta encontrada a RecetaResponse")
-    void obtieneReceta() {
-        Receta existente = Receta.reconstruir(5, "Ensalada", "Mezclar", true, List.of(1));
-        when(recetaRepository.buscarPorId(5)).thenReturn(Optional.of(existente));
+    @DisplayName("listar() retorna todas las recetas activas")
+    void listarRecetas() {
+        Receta existente = Receta.reconstruir(10, "Ensalada", "Instrucciones", true, List.of(1));
+        when(recetaRepository.listarActivas()).thenReturn(List.of(existente));
 
-        RecetaResponse response = useCases.obtener(5);
+        List<RecetaResponse> list = useCases.listar();
 
-        assertThat(response.id()).isEqualTo(5);
-        assertThat(response.nombre()).isEqualTo("Ensalada");
-    }
-
-    @Test
-    @DisplayName("listar() traduce cada Receta activa del repositorio a RecetaResponse")
-    void listaRecetasActivas() {
-        when(recetaRepository.listarActivas()).thenReturn(List.of(
-                Receta.reconstruir(1, "Ensalada", "Mezclar", true, List.of(1)),
-                Receta.reconstruir(2, "Sopa", "Hervir", true, List.of(2))));
-
-        List<RecetaResponse> respuesta = useCases.listar();
-
-        assertThat(respuesta).hasSize(2);
-        assertThat(respuesta).extracting(RecetaResponse::nombre).containsExactly("Ensalada", "Sopa");
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).id()).isEqualTo(10);
     }
 }

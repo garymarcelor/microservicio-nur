@@ -16,16 +16,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Unit test de la capa presentation: se levanta SOLO el controller (modo
- * standalone, sin contexto de Spring completo) y se mockea el caso de uso.
- * Es rapido (no requiere base de datos) y sirve para verificar el mapeo
- * HTTP <-> DTO y el manejo de errores (via GlobalExceptionHandler).
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("IngredienteController")
 class IngredienteControllerTest {
@@ -57,6 +55,42 @@ class IngredienteControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.nombre").value("Palta"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/ingredientes/{id} responde 200 con ingrediente actualizado")
+    void actualizaIngrediente() throws Exception {
+        IngredienteRequest request = new IngredienteRequest("Palta Hass", "Palta fresca", TipoIngrediente.GRASA);
+        IngredienteResponse response = new IngredienteResponse(1, "Palta Hass", "Palta fresca", TipoIngrediente.GRASA, true);
+        when(ingredienteUseCases.actualizar(eq(1), any())).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/ingredientes/1")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Palta Hass"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/ingredientes/{id} responde 200 con ingrediente")
+    void obtenerExistenteResponde200() throws Exception {
+        IngredienteResponse response = new IngredienteResponse(1, "Palta", "Palta fresca", TipoIngrediente.GRASA, true);
+        when(ingredienteUseCases.obtener(1)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/ingredientes/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/ingredientes responde 200 con la lista de ingredientes")
+    void listarResponde200() throws Exception {
+        IngredienteResponse response = new IngredienteResponse(1, "Palta", "Palta fresca", TipoIngrediente.GRASA, true);
+        when(ingredienteUseCases.listar()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/ingredientes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1));
     }
 
     @Test

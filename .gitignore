@@ -14,3 +14,14 @@ build/
 .classpath
 .project
 .settings/
+
+# Logs
+*.log
+
+# Maven Wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# Configuración sensible
+application-local.properties
+.env
+

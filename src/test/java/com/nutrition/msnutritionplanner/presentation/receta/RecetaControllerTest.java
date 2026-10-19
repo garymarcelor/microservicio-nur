@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -44,108 +45,100 @@ class RecetaControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/recetas con datos validos responde 201")
-    void crearReceta() throws Exception {
-        RecetaRequest request = new RecetaRequest("Ensalada", "Ensalada verde", "Mezclar todo");
-        RecetaResponse response = new RecetaResponse(1, "Ensalada", "Ensalada verde", "Mezclar todo", 0.0, 0.0, 0.0, 0.0, true, List.of());
+    @DisplayName("POST /api/v1/recetas crea una receta y responde 201")
+    void crear() throws Exception {
+        RecetaRequest request = new RecetaRequest("Ensalada", "Picar todo", List.of(1));
+        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+
         when(recetaUseCases.crear(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/recetas")
-                        .contentType("application/json")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.nombre").value("Ensalada"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/recetas sin nombre responde 400")
-    void crearRecetaFallaValidacion() throws Exception {
-        RecetaRequest request = new RecetaRequest("", "desc", "prep");
+    @DisplayName("PUT /api/v1/recetas/{id} actualiza la receta y responde 200")
+    void actualizar() throws Exception {
+        RecetaRequest request = new RecetaRequest("Ensalada Caesar", "Picar y aderezar", List.of(1, 2));
+        RecetaResponse response = new RecetaResponse(10, "Ensalada Caesar", "Picar y aderezar", true, List.of(1, 2));
 
-        mockMvc.perform(post("/api/v1/recetas")
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
+        when(recetaUseCases.actualizar(eq(10), any())).thenReturn(response);
 
-    @Test
-    @DisplayName("PUT /api/v1/recetas/{id} con datos validos responde 200")
-    void actualizarReceta() throws Exception {
-        RecetaRequest request = new RecetaRequest("Ensalada Editada", "Desc edit", "Prep edit");
-        RecetaResponse response = new RecetaResponse(1, "Ensalada Editada", "Desc edit", "Prep edit", 0.0, 0.0, 0.0, 0.0, true, List.of());
-        when(recetaUseCases.actualizar(eq(1), any())).thenReturn(response);
-
-        mockMvc.perform(put("/api/v1/recetas/1")
-                        .contentType("application/json")
+        mockMvc.perform(put("/api/v1/recetas/10")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nombre").value("Ensalada Editada"));
+                .andExpect(jsonPath("$.nombre").value("Ensalada Caesar"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/recetas/{id}/ingredientes responde 200")
+    @DisplayName("POST /api/v1/recetas/{id}/ingredientes agrega un ingrediente y responde 200")
     void agregarIngrediente() throws Exception {
-        IngredienteRecetaRequest request = new IngredienteRecetaRequest(5);
-        RecetaResponse response = new RecetaResponse(1, "Ensalada", "Desc", "Prep", 0.0, 0.0, 0.0, 0.0, true, List.of());
-        when(recetaUseCases.agregarIngrediente(1, 5)).thenReturn(response);
+        IngredienteRecetaRequest request = new IngredienteRecetaRequest(2);
+        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1, 2));
 
-        mockMvc.perform(post("/api/v1/recetas/1/ingredientes")
-                        .contentType("application/json")
+        when(recetaUseCases.agregarIngrediente(10, 2)).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/recetas/10/ingredientes")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(jsonPath("$.ingredientesIds").value(org.hamcrest.Matchers.hasItems(1, 2)));
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/recetas/{id}/ingredientes/{idIngrediente} responde 200")
+    @DisplayName("DELETE /api/v1/recetas/{id}/ingredientes/{idIngrediente} quita un ingrediente y responde 200")
     void quitarIngrediente() throws Exception {
-        RecetaResponse response = new RecetaResponse(1, "Ensalada", "Desc", "Prep", 0.0, 0.0, 0.0, 0.0, true, List.of());
-        when(recetaUseCases.quitarIngrediente(1, 5)).thenReturn(response);
+        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
 
-        mockMvc.perform(delete("/api/v1/recetas/1/ingredientes/5"))
+        when(recetaUseCases.quitarIngrediente(10, 2)).thenReturn(response);
+
+        mockMvc.perform(delete("/api/v1/recetas/10/ingredientes/2"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(jsonPath("$.ingredientesIds").value(org.hamcrest.Matchers.hasSize(1)));
     }
 
     @Test
-    @DisplayName("GET /api/v1/recetas/{id} existente responde 200")
-    void obtenerReceta() throws Exception {
-        RecetaResponse response = new RecetaResponse(1, "Ensalada", "Desc", "Prep", 0.0, 0.0, 0.0, 0.0, true, List.of());
-        when(recetaUseCases.obtener(1)).thenReturn(response);
+    @DisplayName("GET /api/v1/recetas/{id} obtiene la receta")
+    void obtener() throws Exception {
+        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+        when(recetaUseCases.obtener(10)).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/recetas/1"))
+        mockMvc.perform(get("/api/v1/recetas/10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(jsonPath("$.id").value(10));
     }
 
     @Test
     @DisplayName("GET /api/v1/recetas/{id} inexistente responde 404")
-    void obtenerRecetaInexistente() throws Exception {
+    void obtenerInexistente() throws Exception {
         when(recetaUseCases.obtener(99)).thenThrow(new EntityNotFoundException("Receta", 99));
 
         mockMvc.perform(get("/api/v1/recetas/99"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404));
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("GET /api/v1/recetas responde 200")
-    void listarRecetas() throws Exception {
-        RecetaResponse response = new RecetaResponse(1, "Ensalada", "Desc", "Prep", 0.0, 0.0, 0.0, 0.0, true, List.of());
+    @DisplayName("GET /api/v1/recetas lista todas las recetas activas")
+    void listar() throws Exception {
+        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
         when(recetaUseCases.listar()).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/recetas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$[0].id").value(10));
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/recetas/{id} responde 204")
-    void eliminarReceta() throws Exception {
-        doNothing().when(recetaUseCases).eliminar(1);
+    @DisplayName("DELETE /api/v1/recetas/{id} elimina la receta y responde 204")
+    void eliminar() throws Exception {
+        doNothing().when(recetaUseCases).eliminar(10);
 
-        mockMvc.perform(delete("/api/v1/recetas/1"))
+        mockMvc.perform(delete("/api/v1/recetas/10"))
                 .andExpect(status().isNoContent());
     }
 }

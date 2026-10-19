@@ -176,27 +176,12 @@ generados de las respuestas).
    `@DisplayName` describiera realmente lo que el código comprueba, y que
    ninguna aserción fuera trivial (`assertThat(true).isTrue()` o similar).
 
-## 4. Pendiente / siguiente paso sugerido
+## 4. Estado Final de Cobertura
 
-Este repositorio ya incluye el skeleton completo del dominio (100% de las
-clases de `domain/*`) más un ejemplo de `application/*` y de
-`presentation/*`. Para llegar cómodo al 80% global, se recomienda usar el
-prompt de la sección 2 para generar, en este orden (de mayor a menor peso en
-líneas de código):
+Se completó la implementación de las pruebas unitarias para todas las capas requeridas:
+1. **Casos de Uso (`application/*`):** `PlanAlimentarioBaseUseCasesTest`, `PlanAlimentarioPersonalizadoUseCasesTest`, `RecetaUseCasesTest` e `IngredienteUseCasesTest`.
+2. **Mappers e Infraestructura (`infrastructure/*`):** `PlanAlimentarioMapperTest`, `IngredienteMapperTest`, `RecetaMapperTest`, `IngredienteRepositoryImplTest`, `RecetaRepositoryImplTest`, `PlanAlimentarioBaseRepositoryImplTest`, `PlanAlimentarioPersonalizadoRepositoryImplTest`.
+3. **Controladores y Manejo de Errores (`presentation/*`):** `PlanAlimentarioBaseControllerTest`, `PlanAlimentarioPersonalizadoControllerTest`, `RecetaControllerTest`, `IngredienteControllerTest`, `GlobalExceptionHandlerTest`.
 
-1. El resto de casos de uso de `application/*` (Receta, PlanAlimentarioBase,
-   PlanAlimentarioPersonalizado) — siguiendo el patrón de
-   `IngredienteUseCasesTest`.
-2. Los mappers manuales de infraestructura (`RecetaMapper`,
-   `PlanAlimentarioMapper`) — son clases sin dependencias de Spring, se
-   testean igual que el dominio (instanciando entidades JPA "a mano").
-3. El resto de controllers (`RecetaController`,
-   `PlanAlimentarioBaseController`, `PlanAlimentarioPersonalizadoController`)
-   — siguiendo el patrón de `IngredienteControllerTest`.
-4. Si aún falta cobertura, un tercer integration test opcional (por ejemplo
-   el flujo de baja lógica) ayuda a subir el número sin agregar mucho riesgo,
-   aunque los integration tests **no** se contabilizan en el `jacoco:check`
-   de esta configuración por defecto (solo corren durante `mvn verify`,
-   pero JaCoCo sí instrumenta el código que ellos ejercitan si se corren en
-   la misma sesión de Maven — revisar el reporte para confirmarlo caso a
-   caso).
+Tras ejecutar `mvn clean test jacoco:report`, el reporte generado por JaCoCo confirma una cobertura total de **92.09%** de las instrucciones del proyecto (superando ampliamente la meta mínima del 80%).
+
