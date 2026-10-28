@@ -1,0 +1,31 @@
+services:
+
+  mysql:
+    image: mysql:8.4
+    container_name: mysql-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: FOODV2
+      MYSQL_USER: grobles
+      MYSQL_PASSWORD: 12345678
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  nutrition-app:
+    image: ms-nutrition-planner:latest
+    container_name: nutrition-app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - "7000:7000"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/FOODV2?useUnicode=true&characterEncoding=UTF-8&serverTimezone=America/La_Paz
+      SPRING_DATASOURCE_USERNAME: grobles
+      SPRING_DATASOURCE_PASSWORD: 12345678
+
+volumes:
+  mysql_data:
