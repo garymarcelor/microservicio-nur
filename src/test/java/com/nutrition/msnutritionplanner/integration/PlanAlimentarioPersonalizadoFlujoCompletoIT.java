@@ -2,6 +2,8 @@ package com.nutrition.msnutritionplanner.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nutrition.msnutritionplanner.infrastructure.outbox.OutboxJpaEntity;
+import com.nutrition.msnutritionplanner.infrastructure.outbox.SpringDataOutboxRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,9 @@ class PlanAlimentarioPersonalizadoFlujoCompletoIT {
     @Autowired
     private WebApplicationContext wac;
 
+    @Autowired
+    private SpringDataOutboxRepository outboxRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private MockMvc mockMvc;
@@ -61,13 +66,14 @@ class PlanAlimentarioPersonalizadoFlujoCompletoIT {
 
         // 1) Crear la version personalizada a partir del plan base
         String personalizadoJson = """
-                {"idPlanBase":%d,"descripcionCambios":"El paciente pidio evitar lacteos"}
+                {"idPlanBase":%d,"idPaciente":"PAC-1024","descripcionCambios":"El paciente pidio evitar lacteos"}
                 """.formatted(idPlanBase);
 
         MvcResult personalizadoResult = mockMvc.perform(post("/api/v1/planes-personalizados")
                         .contentType("application/json").content(personalizadoJson))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.idPlanBase").value(idPlanBase))
+                .andExpect(jsonPath("$.idPaciente").value("PAC-1024"))
                 .andExpect(jsonPath("$.estadoPlan").value("INICIADO"))
                 .andReturn();
         int idPersonalizado = jsonId(personalizadoResult);
@@ -119,12 +125,30 @@ class PlanAlimentarioPersonalizadoFlujoCompletoIT {
         int idPlanIniciado = jsonId(planResult); // se queda en INICIADO, nunca se completa
 
         String personalizadoJson = """
-                {"idPlanBase":%d,"descripcionCambios":"cambio"}
+                {"idPlanBase":%d,"idPaciente":"PAC-1024","descripcionCambios":"cambio"}
                 """.formatted(idPlanIniciado);
 
         mockMvc.perform(post("/api/v1/planes-personalizados")
                         .contentType("application/json").content(personalizadoJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("crear plan personalizado sin idPaciente responde 400")
+    void crearSinIdPacienteResponde400() throws Exception {
+        String json = """
+                {"idPlanBase":1,"descripcionCambios":"cambio"}
+                """;
+        mockMvc.perform(post("/api/v1/planes-personalizados")
+                        .contentType("application/json").content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    /** Devuelve las filas del outbox con el nombre de evento indicado. */
+    private java.util.List<OutboxJpaEntity> eventosOutbox(String eventName) {
+        return outboxRepository.findAll().stream()
+                .filter(e -> e.getEventName().equals(eventName))
+                .toList();
     }
 
     // ---------- Helpers de preparacion (reutilizables entre tests de este flujo) ----------
@@ -158,7 +182,8 @@ class PlanAlimentarioPersonalizadoFlujoCompletoIT {
 
     private int crearReceta(String nombre, String instruccion, int idIngrediente) throws Exception {
         String json = """
-                {"nombre":"%s","instruccion":"%s","ingredientesIds":[%d]}
+                {"nombre":"%s","instruccion":"%s","porcionGramos":200,
+                 "ingredientes":[{"idIngrediente":%d,"cantidad":80,"unidad":"GRAMOS"}]}
                 """.formatted(nombre, instruccion, idIngrediente);
         MvcResult result = mockMvc.perform(post("/api/v1/recetas")
                         .contentType("application/json").content(json))

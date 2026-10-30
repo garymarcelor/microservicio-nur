@@ -22,9 +22,10 @@ class PlanAlimentarioPersonalizadoTest {
     void creaPersonalizadoValido() {
         PlanAlimentarioBase base = PlanAlimentarioBase.reconstruir(1, EstadoPlan.COMPLETO, FECHA, true, List.of());
 
-        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "Cambio de dieta");
+        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "pac-1", "Cambio de dieta");
 
         assertThat(personalizado.getIdPlanBase()).isEqualTo(1);
+        assertThat(personalizado.getIdPaciente()).isEqualTo("pac-1");
         assertThat(personalizado.getDescripcionCambios()).isEqualTo("Cambio de dieta");
         assertThat(personalizado.getEstadoPlan()).isEqualTo(EstadoPlan.INICIADO);
         assertThat(personalizado.getFechaInicioVigencia()).isEqualTo(FECHA);
@@ -35,7 +36,7 @@ class PlanAlimentarioPersonalizadoTest {
     void fallaConPlanOrigenSinPersistir() {
         PlanAlimentarioBase base = PlanAlimentarioBase.crear(FECHA); // sin id
 
-        assertThatThrownBy(() -> PlanAlimentarioPersonalizado.crearDesde(base, "cambio"))
+        assertThatThrownBy(() -> PlanAlimentarioPersonalizado.crearDesde(base, "pac-1", "cambio"))
                 .isInstanceOf(DomainValidationException.class)
                 .hasMessageContaining("persistido");
     }
@@ -45,16 +46,25 @@ class PlanAlimentarioPersonalizadoTest {
     void fallaConPlanOrigenNoCompleto() {
         PlanAlimentarioBase base = PlanAlimentarioBase.reconstruir(1, EstadoPlan.INICIADO, FECHA, true, List.of());
 
-        assertThatThrownBy(() -> PlanAlimentarioPersonalizado.crearDesde(base, "cambio"))
+        assertThatThrownBy(() -> PlanAlimentarioPersonalizado.crearDesde(base, "pac-1", "cambio"))
                 .isInstanceOf(DomainValidationException.class)
                 .hasMessageContaining("COMPLETO");
+    }
+
+    @Test
+    @DisplayName("crearDesde() con idPaciente en blanco lanza DomainValidationException")
+    void fallaConIdPacienteEnBlanco() {
+        PlanAlimentarioBase base = PlanAlimentarioBase.reconstruir(1, EstadoPlan.COMPLETO, FECHA, true, List.of());
+
+        assertThatThrownBy(() -> PlanAlimentarioPersonalizado.crearDesde(base, " ", "cambio"))
+                .isInstanceOf(DomainValidationException.class);
     }
 
     @Test
     @DisplayName("reconstruir() sin idPlanBase lanza DomainValidationException")
     void fallaReconstruirSinPlanBase() {
         assertThatThrownBy(() -> PlanAlimentarioPersonalizado.reconstruir(
-                5, null, "cambio", EstadoPlan.INICIADO, FECHA, true, List.of()))
+                5, null, "pac-1", "cambio", EstadoPlan.INICIADO, FECHA, true, List.of()))
                 .isInstanceOf(DomainValidationException.class)
                 .hasMessageContaining("idPlanBase");
     }
@@ -63,7 +73,7 @@ class PlanAlimentarioPersonalizadoTest {
     @DisplayName("actualizarDescripcionCambios() modifica el texto en un plan editable")
     void actualizaDescripcion() {
         PlanAlimentarioBase base = PlanAlimentarioBase.reconstruir(1, EstadoPlan.COMPLETO, FECHA, true, List.of());
-        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "version inicial");
+        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "pac-1", "version inicial");
 
         personalizado.actualizarDescripcionCambios("version corregida");
 
@@ -74,7 +84,7 @@ class PlanAlimentarioPersonalizadoTest {
     @DisplayName("PlanAlimentarioPersonalizado hereda el comportamiento de PlanAlimentarioBase (agregarDia)")
     void heredaComportamientoDePlanBase() {
         PlanAlimentarioBase base = PlanAlimentarioBase.reconstruir(1, EstadoPlan.COMPLETO, FECHA, true, List.of());
-        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "cambio");
+        PlanAlimentarioPersonalizado personalizado = PlanAlimentarioPersonalizado.crearDesde(base, "pac-1", "cambio");
 
         personalizado.agregarDia();
 

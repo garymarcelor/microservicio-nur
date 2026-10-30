@@ -1,7 +1,9 @@
 package com.nutrition.msnutritionplanner.application.receta;
 
+import com.nutrition.msnutritionplanner.application.receta.dto.IngredienteRecetaRequest;
 import com.nutrition.msnutritionplanner.application.receta.dto.RecetaRequest;
 import com.nutrition.msnutritionplanner.application.receta.dto.RecetaResponse;
+import com.nutrition.msnutritionplanner.application.shared.event.IntegrationEventPublisher;
 import com.nutrition.msnutritionplanner.domain.exceptions.DomainValidationException;
 import com.nutrition.msnutritionplanner.domain.exceptions.EntityNotFoundException;
 import com.nutrition.msnutritionplanner.domain.ingrediente.IngredienteRepository;
@@ -16,6 +18,9 @@ import java.util.List;
  * Casos de uso del agregado Receta. Verifica la existencia de los
  * agregados Ingrediente referenciados (por identidad) antes de delegar
  * la regla de negocio al dominio.
+ *
+ * Actividad 2: al crear una receta se registra el evento de integracion
+ * bc2.RecetaCreada (via outbox) en la MISMA transaccion.
  */
 @Service
 @Transactional
@@ -23,39 +28,48 @@ public class RecetaUseCases {
 
     private final RecetaRepository recetaRepository;
     private final IngredienteRepository ingredienteRepository;
+    private final IntegrationEventPublisher eventPublisher;
 
-    public RecetaUseCases(RecetaRepository recetaRepository, IngredienteRepository ingredienteRepository) {
+    public RecetaUseCases(RecetaRepository recetaRepository, IngredienteRepository ingredienteRepository,
+                          IntegrationEventPublisher eventPublisher) {
         this.recetaRepository = recetaRepository;
         this.ingredienteRepository = ingredienteRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public RecetaResponse crear(RecetaRequest request) {
         validarIngredientesExisten(request.ingredientesIds());
-        Receta receta = Receta.crear(request.nombre(), request.instruccion(), request.ingredientesIds());
-        return RecetaResponse.desde(recetaRepository.guardar(receta));
+        Receta receta = Receta.crear(request.nombre(), request.instruccion(), request.porcionGramos(),
+                request.ingredientes().stream().map(IngredienteRecetaRequest::aDominio).toList());
+        // Se guarda primero para obtener el id generado por MySQL...
+        Receta guardada = recetaRepository.guardar(receta);
+        // ...y luego se registra el evento en la tabla outbox (misma transaccion).
+        eventPublisher.recetaCreada(guardada);
+        return RecetaResponse.desde(guardada);
     }
 
     public RecetaResponse actualizar(Integer id, RecetaRequest request) {
         validarIngredientesExisten(request.ingredientesIds());
         Receta receta = obtenerOFallar(id);
-        receta.actualizarDatos(request.nombre(), request.instruccion());
-        for (Integer idIngrediente : request.ingredientesIds()) {
-            receta.agregarIngrediente(idIngrediente);
+        receta.actualizarDatos(request.nombre(), request.instruccion(), request.porcionGramos());
+        for (IngredienteRecetaRequest ingrediente : request.ingredientes()) {
+            receta.agregarIngrediente(ingrediente.aDominio());
         }
+        List<Integer> idsSolicitados = request.ingredientesIds();
         for (Integer existente : receta.getIngredientesIds()) {
-            if (!request.ingredientesIds().contains(existente)) {
+            if (!idsSolicitados.contains(existente)) {
                 receta.quitarIngrediente(existente);
             }
         }
         return RecetaResponse.desde(recetaRepository.guardar(receta));
     }
 
-    public RecetaResponse agregarIngrediente(Integer id, Integer idIngrediente) {
-        if (!ingredienteRepository.existePorId(idIngrediente)) {
-            throw new EntityNotFoundException("Ingrediente", idIngrediente);
+    public RecetaResponse agregarIngrediente(Integer id, IngredienteRecetaRequest ingrediente) {
+        if (!ingredienteRepository.existePorId(ingrediente.idIngrediente())) {
+            throw new EntityNotFoundException("Ingrediente", ingrediente.idIngrediente());
         }
         Receta receta = obtenerOFallar(id);
-        receta.agregarIngrediente(idIngrediente);
+        receta.agregarIngrediente(ingrediente.aDominio());
         return RecetaResponse.desde(recetaRepository.guardar(receta));
     }
 

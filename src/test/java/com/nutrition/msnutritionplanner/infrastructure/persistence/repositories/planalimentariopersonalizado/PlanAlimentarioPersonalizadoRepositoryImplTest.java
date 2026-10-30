@@ -47,7 +47,7 @@ class PlanAlimentarioPersonalizadoRepositoryImplTest {
     @Test
     @DisplayName("guardar() persiste y retorna el plan personalizado")
     void guardar() {
-        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 1, "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 1, "paciente-1", "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
         PlanAlimentarioJpaEntity entity = new PlanAlimentarioJpaEntity();
         PlanAlimentarioJpaEntity planBaseEntity = new PlanAlimentarioJpaEntity();
         planBaseEntity.setId(1);
@@ -67,7 +67,7 @@ class PlanAlimentarioPersonalizadoRepositoryImplTest {
     @Test
     @DisplayName("guardar() lanza EntityNotFoundException si el plan base no existe")
     void guardarPlanBaseInexistente() {
-        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 99, "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 99, "paciente-1", "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
         when(jpaRepository.findById(10)).thenReturn(Optional.of(new PlanAlimentarioJpaEntity()));
         when(jpaRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -83,7 +83,7 @@ class PlanAlimentarioPersonalizadoRepositoryImplTest {
         planBaseEntity.setId(1);
         entity.setPlanBase(planBaseEntity);
 
-        PlanAlimentarioPersonalizado domain = PlanAlimentarioPersonalizado.reconstruir(10, 1, "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado domain = PlanAlimentarioPersonalizado.reconstruir(10, 1, "paciente-1", "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
 
         when(jpaRepository.findById(10)).thenReturn(Optional.of(entity));
         when(mapper.toDomainPersonalizado(entity)).thenReturn(domain);
@@ -97,7 +97,7 @@ class PlanAlimentarioPersonalizadoRepositoryImplTest {
     @DisplayName("listarActivosPorPlanBase() retorna lista de planes personalizados")
     void listarActivosPorPlanBase() {
         PlanAlimentarioJpaEntity entity = new PlanAlimentarioJpaEntity();
-        PlanAlimentarioPersonalizado domain = PlanAlimentarioPersonalizado.reconstruir(10, 1, "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado domain = PlanAlimentarioPersonalizado.reconstruir(10, 1, "paciente-1", "Cambio", EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>());
 
         when(jpaRepository.findByActivoTrueAndPlanBase_Id(1)).thenReturn(List.of(entity));
         when(mapper.toDomainPersonalizado(entity)).thenReturn(domain);

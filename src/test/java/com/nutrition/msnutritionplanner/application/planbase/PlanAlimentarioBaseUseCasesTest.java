@@ -3,17 +3,20 @@ package com.nutrition.msnutritionplanner.application.planbase;
 import com.nutrition.msnutritionplanner.application.planbase.dto.CrearPlanBaseRequest;
 import com.nutrition.msnutritionplanner.application.planbase.dto.PlanBaseResponse;
 import com.nutrition.msnutritionplanner.application.planbase.dto.TiempoDeComidaRequest;
+import com.nutrition.msnutritionplanner.application.shared.event.IntegrationEventPublisher;
 import com.nutrition.msnutritionplanner.domain.exceptions.DomainValidationException;
 import com.nutrition.msnutritionplanner.domain.exceptions.EntityNotFoundException;
 import com.nutrition.msnutritionplanner.domain.planbase.Dia;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBase;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBaseRepository;
 import com.nutrition.msnutritionplanner.domain.planbase.TiempoDeComida;
+import com.nutrition.msnutritionplanner.domain.receta.IngredienteCantidad;
 import com.nutrition.msnutritionplanner.domain.receta.Receta;
 import com.nutrition.msnutritionplanner.domain.receta.RecetaRepository;
 import com.nutrition.msnutritionplanner.domain.shared.EstadoPlan;
 import com.nutrition.msnutritionplanner.domain.shared.Hora;
 import com.nutrition.msnutritionplanner.domain.shared.Orden;
+import com.nutrition.msnutritionplanner.domain.shared.UnidadMedida;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -44,11 +48,18 @@ class PlanAlimentarioBaseUseCasesTest {
     @Mock
     private RecetaRepository recetaRepository;
 
+    @Mock
+    private IntegrationEventPublisher eventPublisher;
+
     private PlanAlimentarioBaseUseCases useCases;
+
+    private static IngredienteCantidad ing(int id) {
+        return new IngredienteCantidad(id, new BigDecimal("100"), UnidadMedida.GRAMOS);
+    }
 
     @BeforeEach
     void setUp() {
-        useCases = new PlanAlimentarioBaseUseCases(planRepository, recetaRepository);
+        useCases = new PlanAlimentarioBaseUseCases(planRepository, recetaRepository, eventPublisher);
     }
 
     @Test
@@ -67,6 +78,7 @@ class PlanAlimentarioBaseUseCasesTest {
         assertThat(response.id()).isEqualTo(1);
         assertThat(response.fechaInicioVigencia()).isEqualTo(inicio);
         verify(planRepository).guardar(any(PlanAlimentarioBase.class));
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -80,6 +92,7 @@ class PlanAlimentarioBaseUseCasesTest {
 
         assertThat(response.dias()).hasSize(1);
         verify(planRepository).guardar(plan);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -104,7 +117,7 @@ class PlanAlimentarioBaseUseCasesTest {
         Dia d1 = Dia.reconstruir(1, Orden.of(1), new ArrayList<>());
         PlanAlimentarioBase plan = PlanAlimentarioBase.reconstruir(1, EstadoPlan.INICIADO, LocalDate.now(), true, new ArrayList<>(List.of(d1)));
 
-        Receta recetaMock = Receta.reconstruir(10, "Ensalada", "Mezclar", true, List.of(1));
+        Receta recetaMock = Receta.reconstruir(10, "Ensalada", "Mezclar", 200, true, List.of(ing(1)));
         when(recetaRepository.buscarPorIds(List.of(10))).thenReturn(List.of(recetaMock));
         when(planRepository.buscarPorId(1)).thenReturn(Optional.of(plan));
         when(planRepository.guardar(any(PlanAlimentarioBase.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -156,6 +169,7 @@ class PlanAlimentarioBaseUseCasesTest {
         PlanBaseResponse response = useCases.completar(1);
 
         assertThat(response.estadoPlan()).isEqualTo(EstadoPlan.COMPLETO);
+        verify(eventPublisher).planBaseCreado(any(PlanAlimentarioBase.class));
     }
 
     @Test

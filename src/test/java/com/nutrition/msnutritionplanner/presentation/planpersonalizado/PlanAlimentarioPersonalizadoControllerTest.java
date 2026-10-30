@@ -52,8 +52,8 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("POST /api/v1/planes-personalizados responde 201")
     void crear() throws Exception {
-        CrearPlanPersonalizadoRequest request = new CrearPlanPersonalizadoRequest(1, "Motivo cambio");
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        CrearPlanPersonalizadoRequest request = new CrearPlanPersonalizadoRequest(1, "PAC-1", "Motivo cambio");
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
 
         when(useCases.crear(any())).thenReturn(response);
 
@@ -68,7 +68,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("GET /api/v1/planes-personalizados/{id} responde 200")
     void obtener() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.obtener(10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/planes-personalizados/10"))
@@ -88,7 +88,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("GET /api/v1/planes-personalizados?idPlanBase=1 responde 200")
     void listarPorPlanBase() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.listarPorPlanBase(1)).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/planes-personalizados?idPlanBase=1"))
@@ -99,7 +99,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("POST /api/v1/planes-personalizados/{id}/dias agrega un dia y responde 200")
     void agregarDia() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.agregarDia(10)).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/planes-personalizados/10/dias"))
@@ -109,7 +109,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia} quita un dia y responde 200")
     void quitarDia() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.quitarDia(10, 2)).thenReturn(response);
 
         mockMvc.perform(delete("/api/v1/planes-personalizados/10/dias/2"))
@@ -120,7 +120,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @DisplayName("POST /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida agrega tiempo y responde 200")
     void agregarTiempoDeComida() throws Exception {
         TiempoDeComidaRequest request = new TiempoDeComidaRequest(LocalTime.of(8, 0), List.of(1));
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.agregarTiempoDeComida(eq(10), eq(2), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/planes-personalizados/10/dias/2/tiempos-comida")
@@ -132,7 +132,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/planes-personalizados/{id}/dias/{idDia}/tiempos-comida/{idTiempo} quita tiempo y responde 200")
     void quitarTiempoDeComida() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.INICIADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.quitarTiempoDeComida(10, 2, 3)).thenReturn(response);
 
         mockMvc.perform(delete("/api/v1/planes-personalizados/10/dias/2/tiempos-comida/3"))
@@ -142,7 +142,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("PATCH /api/v1/planes-personalizados/{id}/completar responde 200")
     void completar() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.COMPLETO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.COMPLETO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.completar(10)).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/planes-personalizados/10/completar"))
@@ -153,7 +153,7 @@ class PlanAlimentarioPersonalizadoControllerTest {
     @Test
     @DisplayName("PATCH /api/v1/planes-personalizados/{id}/descartar responde 200")
     void descartar() throws Exception {
-        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "Motivo cambio", EstadoPlan.DESCARTADO, LocalDate.now(), true, Collections.emptyList());
+        PlanPersonalizadoResponse response = new PlanPersonalizadoResponse(10, 1, "PAC-1", "Motivo cambio", EstadoPlan.DESCARTADO, LocalDate.now(), true, Collections.emptyList());
         when(useCases.descartar(10)).thenReturn(response);
 
         mockMvc.perform(patch("/api/v1/planes-personalizados/10/descartar"))

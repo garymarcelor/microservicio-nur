@@ -3,6 +3,7 @@ package com.nutrition.msnutritionplanner.application.planbase;
 import com.nutrition.msnutritionplanner.application.planbase.dto.CrearPlanBaseRequest;
 import com.nutrition.msnutritionplanner.application.planbase.dto.PlanBaseResponse;
 import com.nutrition.msnutritionplanner.application.planbase.dto.TiempoDeComidaRequest;
+import com.nutrition.msnutritionplanner.application.shared.event.IntegrationEventPublisher;
 import com.nutrition.msnutritionplanner.domain.exceptions.DomainValidationException;
 import com.nutrition.msnutritionplanner.domain.exceptions.EntityNotFoundException;
 import com.nutrition.msnutritionplanner.domain.planbase.PlanAlimentarioBase;
@@ -19,6 +20,11 @@ import java.util.List;
  * de "Asesoramiento Nutricional" del caso de estudio: el profesional en
  * nutricion elabora un plan alimentario de 15 dias con sus tiempos de
  * comida y recetas asignadas.
+ *
+ * Actividad 2: cuando el plan se COMPLETA se registra el evento de
+ * integracion bc2.PlanBaseCreado (via outbox) en la misma transaccion. Se
+ * publica al completar (no al crear) porque el contrato exige
+ * estadoPlan = COMPLETO: un plan INICIADO aun no le sirve a Catering.
  */
 @Service
 @Transactional
@@ -26,10 +32,13 @@ public class PlanAlimentarioBaseUseCases {
 
     private final PlanAlimentarioBaseRepository planRepository;
     private final RecetaRepository recetaRepository;
+    private final IntegrationEventPublisher eventPublisher;
 
-    public PlanAlimentarioBaseUseCases(PlanAlimentarioBaseRepository planRepository, RecetaRepository recetaRepository) {
+    public PlanAlimentarioBaseUseCases(PlanAlimentarioBaseRepository planRepository, RecetaRepository recetaRepository,
+                                       IntegrationEventPublisher eventPublisher) {
         this.planRepository = planRepository;
         this.recetaRepository = recetaRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public PlanBaseResponse crear(CrearPlanBaseRequest request) {
@@ -65,7 +74,10 @@ public class PlanAlimentarioBaseUseCases {
     public PlanBaseResponse completar(Integer idPlan) {
         PlanAlimentarioBase plan = obtenerOFallar(idPlan);
         plan.completar();
-        return PlanBaseResponse.desde(planRepository.guardar(plan));
+        PlanAlimentarioBase guardado = planRepository.guardar(plan);
+        // Evento de integracion -> tabla outbox (misma transaccion que el cambio de estado)
+        eventPublisher.planBaseCreado(guardado);
+        return PlanBaseResponse.desde(guardado);
     }
 
     public PlanBaseResponse descartar(Integer idPlan) {

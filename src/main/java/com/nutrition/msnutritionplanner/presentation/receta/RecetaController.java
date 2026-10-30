@@ -41,7 +41,7 @@ public class RecetaController {
     @Operation(summary = "Agregar un ingrediente a la receta")
     public ResponseEntity<RecetaResponse> agregarIngrediente(@PathVariable Integer id,
                                                                @Valid @RequestBody IngredienteRecetaRequest request) {
-        return ResponseEntity.ok(recetaUseCases.agregarIngrediente(id, request.idIngrediente()));
+        return ResponseEntity.ok(recetaUseCases.agregarIngrediente(id, request));
     }
 
     @DeleteMapping("/{id}/ingredientes/{idIngrediente}")

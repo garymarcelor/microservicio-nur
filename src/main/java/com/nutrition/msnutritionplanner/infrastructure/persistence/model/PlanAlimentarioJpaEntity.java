@@ -47,6 +47,14 @@ public class PlanAlimentarioJpaEntity {
     @JoinColumn(name = "id_plan_base")
     private PlanAlimentarioJpaEntity planBase;
 
+    /**
+     * Actividad 2: paciente de BC1 (p. ej. "PAC-1024") al que pertenece un
+     * plan personalizado. NULL en planes base. Requerido por el evento
+     * bc2.PlanPersonalizadoCreado.
+     */
+    @Column(name = "id_paciente", length = 40)
+    private String idPaciente;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_plan")
     private EstadoPlan estadoPlan;

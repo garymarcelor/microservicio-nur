@@ -1,7 +1,9 @@
 package com.nutrition.msnutritionplanner.infrastructure.persistence.repositories.receta;
 
 import com.nutrition.msnutritionplanner.domain.exceptions.DomainValidationException;
+import com.nutrition.msnutritionplanner.domain.receta.IngredienteCantidad;
 import com.nutrition.msnutritionplanner.domain.receta.Receta;
+import com.nutrition.msnutritionplanner.domain.shared.UnidadMedida;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.IngredienteJpaEntity;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.model.RecetaJpaEntity;
 import com.nutrition.msnutritionplanner.infrastructure.persistence.repositories.ingrediente.IngredienteJpaRepository;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +38,10 @@ class RecetaRepositoryImplTest {
 
     private RecetaRepositoryImpl repository;
 
+    private static IngredienteCantidad ing(Integer id) {
+        return new IngredienteCantidad(id, new BigDecimal("50"), UnidadMedida.GRAMOS);
+    }
+
     @BeforeEach
     void setUp() {
         repository = new RecetaRepositoryImpl(jpaRepository, ingredienteJpaRepository, mapper);
@@ -43,7 +50,7 @@ class RecetaRepositoryImplTest {
     @Test
     @DisplayName("guardar() persiste y retorna la receta de dominio")
     void guardar() {
-        Receta receta = Receta.reconstruir(1, "Ensalada", "Picar", true, List.of(10));
+        Receta receta = Receta.reconstruir(1, "Ensalada", "Picar", 100, true, List.of(ing(10)));
         IngredienteJpaEntity ingJpa = new IngredienteJpaEntity();
         ingJpa.setId(10);
 
@@ -52,6 +59,7 @@ class RecetaRepositoryImplTest {
 
         when(jpaRepository.findById(1)).thenReturn(Optional.of(entity));
         doNothing().when(mapper).copyScalarFields(receta, entity);
+        doNothing().when(mapper).mergeIngredientes(eq(entity), eq(receta.getIngredientes()), any());
         when(ingredienteJpaRepository.findByIdInAndActivoTrue(List.of(10))).thenReturn(List.of(ingJpa));
         when(jpaRepository.save(entity)).thenReturn(entity);
         when(mapper.toDomain(entity)).thenReturn(receta);
@@ -64,7 +72,7 @@ class RecetaRepositoryImplTest {
     @Test
     @DisplayName("guardar() lanza DomainValidationException cuando faltan ingredientes en la BD")
     void guardarIngredientesFaltantes() {
-        Receta receta = Receta.reconstruir(1, "Ensalada", "Picar", true, List.of(99));
+        Receta receta = Receta.reconstruir(1, "Ensalada", "Picar", 100, true, List.of(ing(99)));
         RecetaJpaEntity entity = new RecetaJpaEntity();
 
         when(jpaRepository.findById(1)).thenReturn(Optional.of(entity));
@@ -78,7 +86,7 @@ class RecetaRepositoryImplTest {
     @DisplayName("buscarPorId() consulta el JPA repo")
     void buscarPorId() {
         RecetaJpaEntity entity = new RecetaJpaEntity();
-        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", true, List.of(10));
+        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", 100, true, List.of(ing(10)));
 
         when(jpaRepository.findById(1)).thenReturn(Optional.of(entity));
         when(mapper.toDomain(entity)).thenReturn(domain);
@@ -92,7 +100,7 @@ class RecetaRepositoryImplTest {
     @DisplayName("listarActivas() consulta el JPA repo")
     void listarActivas() {
         RecetaJpaEntity entity = new RecetaJpaEntity();
-        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", true, List.of(10));
+        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", 100, true, List.of(ing(10)));
 
         when(jpaRepository.findByActivoTrue()).thenReturn(List.of(entity));
         when(mapper.toDomain(entity)).thenReturn(domain);
@@ -106,7 +114,7 @@ class RecetaRepositoryImplTest {
     @DisplayName("buscarPorIds() consulta el JPA repo por ids activos")
     void buscarPorIds() {
         RecetaJpaEntity entity = new RecetaJpaEntity();
-        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", true, List.of(10));
+        Receta domain = Receta.reconstruir(1, "Ensalada", "Picar", 100, true, List.of(ing(10)));
 
         when(jpaRepository.findByIdInAndActivoTrue(List.of(1))).thenReturn(List.of(entity));
         when(mapper.toDomain(entity)).thenReturn(domain);

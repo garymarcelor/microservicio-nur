@@ -2,6 +2,8 @@ package com.nutrition.msnutritionplanner.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nutrition.msnutritionplanner.infrastructure.outbox.OutboxJpaEntity;
+import com.nutrition.msnutritionplanner.infrastructure.outbox.SpringDataOutboxRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,9 @@ class PlanAlimentarioBaseFlujoCompletoIT {
     @Autowired
     private WebApplicationContext wac;
 
+    @Autowired
+    private SpringDataOutboxRepository outboxRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private MockMvc mockMvc;
@@ -66,7 +71,10 @@ class PlanAlimentarioBaseFlujoCompletoIT {
         // 2) Crear una receta con esos ingredientes
         String recetaJson = """
                 {"nombre":"Avena con platano","instruccion":"Cocinar la avena y agregar el platano",
-                 "ingredientesIds":[%d,%d]}
+                 "porcionGramos":250,
+                 "ingredientes":[
+                   {"idIngrediente":%d,"cantidad":60,"unidad":"GRAMOS"},
+                   {"idIngrediente":%d,"cantidad":1,"unidad":"UNIDADES"}]}
                 """.formatted(idAvena, idPlatano);
 
         MvcResult recetaResult = mockMvc.perform(post("/api/v1/recetas")
@@ -74,6 +82,9 @@ class PlanAlimentarioBaseFlujoCompletoIT {
                 .andExpect(status().isCreated())
                 .andReturn();
         int idReceta = jsonId(recetaResult);
+
+        // El evento bc2.RecetaCreada debe haber quedado en el outbox
+        assertThat(eventosOutbox("bc2.RecetaCreada")).hasSize(1);
 
         // 3) Crear el plan alimentario base
         MvcResult planResult = mockMvc.perform(post("/api/v1/planes-base")
@@ -126,6 +137,11 @@ class PlanAlimentarioBaseFlujoCompletoIT {
         assertThat(planFinal.get("dias")).hasSize(1);
         assertThat(planFinal.at("/dias/0/tiemposDeComida/0/hora").asText()).isEqualTo("07:30:00");
         assertThat(planFinal.at("/dias/0/tiemposDeComida/0/recetasIds/0").asInt()).isEqualTo(idReceta);
+
+        // 8) Al completar el plan se inserto bc2.PlanBaseCreado en el outbox
+        assertThat(eventosOutbox("bc2.PlanBaseCreado"))
+                .hasSize(1)
+                .allSatisfy(e -> assertThat(e.getPayload()).contains("PLAN-" + idPlan));
     }
 
     @Test
@@ -141,6 +157,24 @@ class PlanAlimentarioBaseFlujoCompletoIT {
         mockMvc.perform(patch("/api/v1/planes-base/{id}/completar", idPlan))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    @DisplayName("crear receta sin porcionGramos responde 400")
+    void crearRecetaSinPorcionGramosResponde400() throws Exception {
+        String json = """
+                {"nombre":"Sin porcion","instruccion":"x",
+                 "ingredientes":[{"idIngrediente":1,"cantidad":10,"unidad":"GRAMOS"}]}
+                """;
+        mockMvc.perform(post("/api/v1/recetas").contentType("application/json").content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    /** Devuelve las filas del outbox con el nombre de evento indicado. */
+    private java.util.List<OutboxJpaEntity> eventosOutbox(String eventName) {
+        return outboxRepository.findAll().stream()
+                .filter(e -> e.getEventName().equals(eventName))
+                .toList();
     }
 
     private int crearIngrediente(String nombre, String descripcion, String tipo) throws Exception {

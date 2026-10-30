@@ -1,15 +1,13 @@
 package com.nutrition.msnutritionplanner.infrastructure.persistence.model;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -36,10 +34,19 @@ public class RecetaJpaEntity extends BaseJpaEntity {
     @Column(name = "instruccion", columnDefinition = "LONGTEXT")
     private String instruccion;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "receta_ingrediente",
-            joinColumns = @JoinColumn(name = "id_receta"),
-            inverseJoinColumns = @JoinColumn(name = "id_ingrediente"))
-    private List<IngredienteJpaEntity> ingredientes = new ArrayList<>();
+    /**
+     * Actividad 2: peso de una porcion en gramos (viaja en bc2.RecetaCreada
+     * y en las recetas de bc2.PlanBaseCreado / bc2.PlanPersonalizadoCreado).
+     * El DEFAULT permite agregar la columna a una base con datos existentes.
+     */
+    @Column(name = "porcion_gramos", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 100")
+    private Integer porcionGramos;
+
+    /**
+     * Actividad 2: antes era un @ManyToMany directo hacia Ingrediente; ahora
+     * la tabla puente es una entidad con cantidad y unidad por porcion.
+     * orphanRemoval elimina la fila puente cuando se quita un ingrediente.
+     */
+    @OneToMany(mappedBy = "receta", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<RecetaIngredienteJpaEntity> ingredientes = new ArrayList<>();
 }

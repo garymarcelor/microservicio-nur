@@ -48,6 +48,14 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
+		<!-- Mensajeria asincrona (Actividad 2): KafkaTemplate para publicar desde el
+		     relay del Transactional Outbox y @KafkaListener para consumir los
+		     eventos de integracion de BC1 y BC3. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-kafka</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>

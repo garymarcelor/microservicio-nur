@@ -74,6 +74,7 @@ class PlanAlimentarioMapperTest {
         PlanAlimentarioJpaEntity entity = new PlanAlimentarioJpaEntity();
         entity.setId(10);
         entity.setPlanBase(planBaseJpa);
+        entity.setIdPaciente("paciente-1");
         entity.setDescripcionCambios("Modificado");
         entity.setEstadoPlan(EstadoPlan.INICIADO);
         entity.setFechaInicioVigencia(LocalDate.now());
@@ -84,6 +85,7 @@ class PlanAlimentarioMapperTest {
 
         assertThat(domain.getId()).isEqualTo(10);
         assertThat(domain.getIdPlanBase()).isEqualTo(1);
+        assertThat(domain.getIdPaciente()).isEqualTo("paciente-1");
         assertThat(domain.getDescripcionCambios()).isEqualTo("Modificado");
     }
 
@@ -102,7 +104,7 @@ class PlanAlimentarioMapperTest {
     @Test
     @DisplayName("copyScalarFieldsPersonalizado() copia campos escalares del plan personalizado")
     void copyScalarFieldsPersonalizado() {
-        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 1, "Cambio", EstadoPlan.COMPLETO, LocalDate.now(), true, new ArrayList<>());
+        PlanAlimentarioPersonalizado plan = PlanAlimentarioPersonalizado.reconstruir(10, 1, "paciente-1", "Cambio", EstadoPlan.COMPLETO, LocalDate.now(), true, new ArrayList<>());
         PlanAlimentarioJpaEntity destino = new PlanAlimentarioJpaEntity();
         PlanAlimentarioJpaEntity planBase = new PlanAlimentarioJpaEntity();
         planBase.setId(1);
@@ -110,6 +112,7 @@ class PlanAlimentarioMapperTest {
         mapper.copyScalarFieldsPersonalizado(plan, destino, planBase);
 
         assertThat(destino.getEstadoPlan()).isEqualTo(EstadoPlan.COMPLETO);
+        assertThat(destino.getIdPaciente()).isEqualTo("paciente-1");
         assertThat(destino.getDescripcionCambios()).isEqualTo("Cambio");
         assertThat(destino.getPlanBase()).isEqualTo(planBase);
     }

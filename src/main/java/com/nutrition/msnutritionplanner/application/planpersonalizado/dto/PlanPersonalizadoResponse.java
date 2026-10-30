@@ -10,6 +10,7 @@ import java.util.List;
 public record PlanPersonalizadoResponse(
         Integer id,
         Integer idPlanBase,
+        String idPaciente,
         String descripcionCambios,
         EstadoPlan estadoPlan,
         LocalDate fechaInicioVigencia,
@@ -18,7 +19,7 @@ public record PlanPersonalizadoResponse(
 ) {
     public static PlanPersonalizadoResponse desde(PlanAlimentarioPersonalizado plan) {
         return new PlanPersonalizadoResponse(
-                plan.getId(), plan.getIdPlanBase(), plan.getDescripcionCambios(),
+                plan.getId(), plan.getIdPlanBase(), plan.getIdPaciente(), plan.getDescripcionCambios(),
                 plan.getEstadoPlan(), plan.getFechaInicioVigencia(), plan.isActivo(),
                 plan.getDias().stream().map(DiaResponse::desde).toList());
     }

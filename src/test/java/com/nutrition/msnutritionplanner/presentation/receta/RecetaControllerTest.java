@@ -6,6 +6,7 @@ import com.nutrition.msnutritionplanner.application.receta.dto.IngredienteReceta
 import com.nutrition.msnutritionplanner.application.receta.dto.RecetaRequest;
 import com.nutrition.msnutritionplanner.application.receta.dto.RecetaResponse;
 import com.nutrition.msnutritionplanner.domain.exceptions.EntityNotFoundException;
+import com.nutrition.msnutritionplanner.domain.shared.UnidadMedida;
 import com.nutrition.msnutritionplanner.presentation.shared.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -45,10 +47,37 @@ class RecetaControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/recetas sin porcionGramos responde 400")
+    void crearSinPorcionGramos() throws Exception {
+        String json = "{\"nombre\":\"Ensalada\",\"instruccion\":\"Picar todo\","
+                + "\"ingredientes\":[{\"idIngrediente\":1,\"cantidad\":50,\"unidad\":\"GRAMOS\"}]}";
+
+        mockMvc.perform(post("/api/v1/recetas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    /** Construye ingredientes de receta de prueba (50 g cada uno). */
+    private static List<IngredienteRecetaRequest> ingredientes(Integer... ids) {
+        return java.util.Arrays.stream(ids)
+                .map(id -> new IngredienteRecetaRequest(id, new BigDecimal("50"), UnidadMedida.GRAMOS))
+                .toList();
+    }
+
+    /** Construye una respuesta de receta de prueba con porcion de 250 g. */
+    private static RecetaResponse respuesta(Integer id, String nombre, String instruccion, List<Integer> ids) {
+        List<RecetaResponse.IngredienteDetalle> detalle = ids.stream()
+                .map(i -> new RecetaResponse.IngredienteDetalle(i, new BigDecimal("50"), UnidadMedida.GRAMOS))
+                .toList();
+        return new RecetaResponse(id, nombre, instruccion, 250, true, ids, detalle);
+    }
+
+    @Test
     @DisplayName("POST /api/v1/recetas crea una receta y responde 201")
     void crear() throws Exception {
-        RecetaRequest request = new RecetaRequest("Ensalada", "Picar todo", List.of(1));
-        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+        RecetaRequest request = new RecetaRequest("Ensalada", "Picar todo", 250, ingredientes(1));
+        RecetaResponse response = respuesta(10, "Ensalada", "Picar todo", List.of(1));
 
         when(recetaUseCases.crear(any())).thenReturn(response);
 
@@ -63,8 +92,8 @@ class RecetaControllerTest {
     @Test
     @DisplayName("PUT /api/v1/recetas/{id} actualiza la receta y responde 200")
     void actualizar() throws Exception {
-        RecetaRequest request = new RecetaRequest("Ensalada Caesar", "Picar y aderezar", List.of(1, 2));
-        RecetaResponse response = new RecetaResponse(10, "Ensalada Caesar", "Picar y aderezar", true, List.of(1, 2));
+        RecetaRequest request = new RecetaRequest("Ensalada Caesar", "Picar y aderezar", 300, ingredientes(1, 2));
+        RecetaResponse response = respuesta(10, "Ensalada Caesar", "Picar y aderezar", List.of(1, 2));
 
         when(recetaUseCases.actualizar(eq(10), any())).thenReturn(response);
 
@@ -78,10 +107,10 @@ class RecetaControllerTest {
     @Test
     @DisplayName("POST /api/v1/recetas/{id}/ingredientes agrega un ingrediente y responde 200")
     void agregarIngrediente() throws Exception {
-        IngredienteRecetaRequest request = new IngredienteRecetaRequest(2);
-        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1, 2));
+        IngredienteRecetaRequest request = new IngredienteRecetaRequest(2, new BigDecimal("50"), UnidadMedida.GRAMOS);
+        RecetaResponse response = respuesta(10, "Ensalada", "Picar todo", List.of(1, 2));
 
-        when(recetaUseCases.agregarIngrediente(10, 2)).thenReturn(response);
+        when(recetaUseCases.agregarIngrediente(eq(10), any(IngredienteRecetaRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/recetas/10/ingredientes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -93,7 +122,7 @@ class RecetaControllerTest {
     @Test
     @DisplayName("DELETE /api/v1/recetas/{id}/ingredientes/{idIngrediente} quita un ingrediente y responde 200")
     void quitarIngrediente() throws Exception {
-        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+        RecetaResponse response = respuesta(10, "Ensalada", "Picar todo", List.of(1));
 
         when(recetaUseCases.quitarIngrediente(10, 2)).thenReturn(response);
 
@@ -105,7 +134,7 @@ class RecetaControllerTest {
     @Test
     @DisplayName("GET /api/v1/recetas/{id} obtiene la receta")
     void obtener() throws Exception {
-        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+        RecetaResponse response = respuesta(10, "Ensalada", "Picar todo", List.of(1));
         when(recetaUseCases.obtener(10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/recetas/10"))
@@ -125,7 +154,7 @@ class RecetaControllerTest {
     @Test
     @DisplayName("GET /api/v1/recetas lista todas las recetas activas")
     void listar() throws Exception {
-        RecetaResponse response = new RecetaResponse(10, "Ensalada", "Picar todo", true, List.of(1));
+        RecetaResponse response = respuesta(10, "Ensalada", "Picar todo", List.of(1));
         when(recetaUseCases.listar()).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/recetas"))

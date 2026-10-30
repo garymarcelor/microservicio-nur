@@ -9,7 +9,10 @@ import com.nutrition.msnutritionplanner.infrastructure.persistence.repositories.
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Repository
 public class RecetaRepositoryImpl implements RecetaRepository {
@@ -38,7 +41,10 @@ public class RecetaRepositoryImpl implements RecetaRepository {
         if (ingredientes.size() != receta.getIngredientesIds().size()) {
             throw new DomainValidationException("Uno o mas ingredientes indicados no existen o estan dados de baja");
         }
-        entity.setIngredientes(ingredientes);
+        Map<Integer, IngredienteJpaEntity> porId = ingredientes.stream()
+                .collect(Collectors.toMap(IngredienteJpaEntity::getId, Function.identity()));
+        // Actividad 2: sincroniza filas puente (ingrediente + cantidad + unidad)
+        mapper.mergeIngredientes(entity, receta.getIngredientes(), porId);
 
         RecetaJpaEntity guardado = jpaRepository.save(entity);
         return mapper.toDomain(guardado);

@@ -41,7 +41,7 @@ public class PlanAlimentarioMapper {
     public PlanAlimentarioPersonalizado toDomainPersonalizado(PlanAlimentarioJpaEntity entity) {
         Integer idPlanBase = entity.getPlanBase() != null ? entity.getPlanBase().getId() : null;
         return PlanAlimentarioPersonalizado.reconstruir(
-                entity.getId(), idPlanBase, entity.getDescripcionCambios(),
+                entity.getId(), idPlanBase, entity.getIdPaciente(), entity.getDescripcionCambios(),
                 entity.getEstadoPlan(), entity.getFechaInicioVigencia(), entity.isActivo(), mapDiasToDomain(entity));
     }
 
@@ -74,6 +74,7 @@ public class PlanAlimentarioMapper {
         destino.setEstadoPlan(plan.getEstadoPlan());
         destino.setFechaInicioVigencia(plan.getFechaInicioVigencia());
         destino.setDescripcionCambios(plan.getDescripcionCambios());
+        destino.setIdPaciente(plan.getIdPaciente());
         destino.setActivo(plan.isActivo());
         destino.setPlanBase(planBaseEntity);
     }
