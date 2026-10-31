@@ -100,7 +100,8 @@ class OutboxIntegrationEventPublisherTest {
         assertThat(json.get("eventName").asString()).isEqualTo("bc2.RecetaCreada");
         assertThat(json.get("eventVersion").asString()).isEqualTo("1.0");
         assertThat(json.get("source").asString()).isEqualTo("MSNutritionPlanner");
-        assertThat(json.get("occurredOn").asString()).isEqualTo("2026-10-10T16:00:00Z");
+        // 16:00 UTC = 12:00 en Bolivia: el contrato exige el desfase -04:00
+        assertThat(json.get("occurredOn").asString()).isEqualTo("2026-10-10T12:00:00-04:00");
         assertThat(json.get("eventId").asString()).hasSize(36);
         assertThat(json.get("correlationId").asString()).isEqualTo("corr-catalogo-REC-45");
 
@@ -190,5 +191,12 @@ class OutboxIntegrationEventPublisherTest {
         assertThat(OutboxIntegrationEventPublisher.normalizar(new BigDecimal("180.00")).toPlainString()).isEqualTo("180");
         assertThat(OutboxIntegrationEventPublisher.normalizar(new BigDecimal("1200")).toPlainString()).isEqualTo("1200");
         assertThat(OutboxIntegrationEventPublisher.normalizar(new BigDecimal("2.50")).toPlainString()).isEqualTo("2.5");
+    }
+
+    @Test
+    @DisplayName("enHoraDeBolivia() da el desfase -04:00 sin fracciones de segundo, aunque cambie el dia")
+    void enHoraDeBolivia() {
+        assertThat(OutboxIntegrationEventPublisher.enHoraDeBolivia(Instant.parse("2026-10-23T02:15:30.987Z")))
+                .isEqualTo("2026-10-22T22:15:30-04:00");
     }
 }

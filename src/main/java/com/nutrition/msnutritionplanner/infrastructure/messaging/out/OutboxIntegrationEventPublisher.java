@@ -28,7 +28,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +56,8 @@ public class OutboxIntegrationEventPublisher implements IntegrationEventPublishe
 
     static final String VERSION = "1.0";
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
+    /** Todo el stack trabaja en hora de Bolivia (-04:00, sin horario de verano). */
+    static final ZoneId ZONA_BOLIVIA = ZoneId.of("America/La_Paz");
 
     private final SpringDataOutboxRepository outbox;
     private final RecetaRepository recetaRepository;
@@ -174,9 +179,20 @@ public class OutboxIntegrationEventPublisher implements IntegrationEventPublishe
     private <T> void registrar(String eventName, String messageKey, String correlacionPorDefecto, T data) {
         String eventId = UUID.randomUUID().toString();
         String correlationId = CorrelationContext.actual().orElse(correlacionPorDefecto);
-        Sobre<T> sobre = new Sobre<>(eventId, eventName, VERSION, reloj.instant().toString(),
+        Instant ahora = reloj.instant();
+        Sobre<T> sobre = new Sobre<>(eventId, eventName, VERSION, enHoraDeBolivia(ahora),
                 source, correlationId, data);
         String json = jsonMapper.writeValueAsString(sobre);
-        outbox.save(new OutboxJpaEntity(eventId, eventName, topic, messageKey, json, reloj.instant()));
+        outbox.save(new OutboxJpaEntity(eventId, eventName, topic, messageKey, json, ahora));
+    }
+
+    /**
+     * occurredOn del contrato: ISO-8601 con el desfase de Bolivia, p. ej.
+     * 2026-10-19T11:00:00-04:00 (contracts/sobre.schema.json exige "-04:00").
+     * No depende de la zona del Clock ni del contenedor.
+     */
+    static String enHoraDeBolivia(Instant instante) {
+        return instante.atZone(ZONA_BOLIVIA).truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }
 }

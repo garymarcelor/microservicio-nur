@@ -25,3 +25,6 @@ build/
 application-local.properties
 .env
 
+
+# Variables de entorno reales: nunca se versionan (plantilla: .env.example)
+.env

@@ -128,7 +128,7 @@ CREATE TABLE outbox_event (
 | Propiedad | Variable | Por defecto | Descripción |
 |---|---|---|---|
 | `app.kafka.enabled` | `KAFKA_ENABLED` | `false` | Activa relay y listeners. En `false` los eventos igual se guardan en el outbox. |
-| `spring.kafka.bootstrap-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Dentro de Docker: `kafka:29092`. |
+| `spring.kafka.bootstrap-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Dentro de Docker: `kafka:9092` (Kafka de la plataforma, red `platform-net`). |
 | `app.kafka.topic` | `KAFKA_TOPIC` | `bc2.nutricion.eventos` | Topic de salida. |
 | `app.kafka.consumo.pacientes-topic` | `KAFKA_TOPIC_PACIENTES` | `bc1.pacientes.eventos` | Entrada BC1. |
 | `app.kafka.consumo.catering-topic` | `KAFKA_TOPIC_CATERING` | `bc3.catering.eventos` | Entrada BC3. |
@@ -139,26 +139,28 @@ CREATE TABLE outbox_event (
 ## 8. Cómo probarlo
 
 ```bash
-mvn clean package -DskipTests
-docker build -t ms-nutrition-planner:latest .
-docker compose up -d
+# Desde nur_proy_final/: plataforma (Kafka, gateway...) + BC2 y los demas servicios
+cp repo-gary/.env.example repo-gary/.env
+docker compose up -d --build
 ```
 
-1. Aplicar `db/V2__eventos_integracion_outbox.sql` solo si `ddl-auto` no es `update`.
+1. La base se crea sola con `db/FOOD_CREATION.sql` y `db/V2__eventos_integracion_outbox.sql`
+   (scripts de initdb de MySQL).
 2. En Swagger (`http://localhost:7000/swagger-ui.html`): crear una receta con
    `porcionGramos` e `ingredientes` (cantidad/unidad), crear un plan base, agregar día y
    tiempo de comida, y `PUT …/completar`.
-3. Ver los mensajes en Kafka UI: `http://localhost:8085` → topic `bc2.nutricion.eventos`.
+3. Ver los mensajes en Kafka UI: `http://localhost:8089` → topic `bc2.nutricion.eventos`, o en
+   `GET http://localhost:8000/notificaciones/api/v1/eventos?tipo=bc2.PlanBaseCreado` (`advertencias` vacía = cumple el contrato).
 4. Revisar la tabla: `SELECT id, event_name, message_key, published_at, intentos FROM outbox_event;`
-5. **Probar la resiliencia:** `docker compose stop kafka`, completar otro plan (responde 200,
-   la fila queda con `published_at NULL`), luego `docker compose start kafka` y comprobar que sale sola.
+5. **Probar la resiliencia:** `docker stop nur-kafka`, completar otro plan (responde 200,
+   la fila queda con `published_at NULL`), luego `docker start nur-kafka` y comprobar que sale sola.
 6. **Probar el consumo:** publicar un `bc3.SuscripcionCancelada` de ejemplo:
 
 ```bash
-docker exec -i nutrition-kafka /opt/kafka/bin/kafka-console-producer.sh \
-  --bootstrap-server kafka:29092 --topic bc3.catering.eventos \
+docker exec -i nur-kafka /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 --topic bc3.catering.eventos \
   --property parse.key=true --property key.separator='|' <<'EOF'
-SUS-501|{"eventId":"3f2a0013-9c1e-4b7a-a1d2-7e5f0c8b1013","eventName":"bc3.SuscripcionCancelada","eventVersion":"1.0","occurredOn":"2026-11-23T03:59:59Z","source":"MsCateringSubscription","correlationId":"corr-baja-SUS-501","data":{"idSuscripcion":"SUS-501","idPaciente":"PAC-1024","idPlan":"PLAN-205","tipoBaja":"VENCIMIENTO","motivo":"Finalización del periodo contratado","fechaEfectiva":"2026-11-22","entregasPendientesAnuladas":0}}
+SUS-501|{"eventId":"3f2a0013-9c1e-4b7a-a1d2-7e5f0c8b1013","eventName":"bc3.SuscripcionCancelada","eventVersion":"1.0","occurredOn":"2026-11-22T23:59:59-04:00","source":"MsCateringSubscription","correlationId":"corr-baja-SUS-501","data":{"idSuscripcion":"SUS-501","idPaciente":"PAC-1024","idPlan":"PLAN-205","tipoBaja":"VENCIMIENTO","motivo":"Finalización del periodo contratado","fechaEfectiva":"2026-11-22","entregasPendientesAnuladas":0}}
 EOF
 ```
 

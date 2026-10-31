@@ -144,6 +144,26 @@ mvn spring-boot:run
 
 La API queda disponible en `http://localhost:7000`.
 
+### 6.1 Con Docker
+
+```bash
+cp .env.example .env
+docker compose up -d --build      # MySQL + app; la imagen se compila dentro de Docker
+```
+
+- La base se crea sola con `db/FOOD_CREATION.sql` y `db/V2__eventos_integracion_outbox.sql`
+  (solo cuando el volumen está vacío; `docker compose down --volumes` la recrea).
+- **Kafka no está en este compose:** es el de la plataforma del grupo (`kafka:9092` en la red
+  `platform-net`, con los topics que crea `kafka-init`). Para levantar BC2 con Kafka se usa el
+  `docker-compose.yml` raíz de `nur_proy_final`, que incluye este archivo. Si se levanta solo,
+  poner `KAFKA_ENABLED=false`: la app funciona igual y los eventos quedan pendientes en `outbox_event`.
+- Imagen con tag fijo (`APP_IMAGE`, nunca `latest`). Para publicarla:
+  `docker build -t <usuario-dockerhub>/ms-nutrition-planner:1.0.0 . && docker push <usuario-dockerhub>/ms-nutrition-planner:1.0.0`
+  y poner ese nombre en `APP_IMAGE`.
+- A través del gateway del grupo: `http://localhost:8000/nutricion/api/...` (con token).
+- Los eventos publicados llevan `occurredOn` en hora de Bolivia (`2026-10-19T11:00:00-04:00`), como
+  exige `contracts/sobre.schema.json`.
+
 ## 7. Testing
 
 ### 7.1 Unit tests (`mvn test`)

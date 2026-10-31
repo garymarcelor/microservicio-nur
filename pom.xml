@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.nutrition</groupId>
 	<artifactId>ms-nutrition-planner</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>ms-nutrition-planner</name>
 	<description>Bounded context: Planes Nutricionales y Recetas - Nur-tricenter</description>
@@ -46,6 +46,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<!-- /actuator/health: lo usa el healthcheck de docker-compose -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
 		<!-- Mensajeria asincrona (Actividad 2): KafkaTemplate para publicar desde el

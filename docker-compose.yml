@@ -1,109 +1,119 @@
+# =============================================================================
+# ms-nutrition-planner (BC2) - Docker Compose
+#
+# Orden de arranque garantizado:
+#   nutrition-db (healthy)  ->  nutrition-app (healthy)
+#
+# Kafka NO se define aqui: es el de la plataforma del grupo (platform/, red
+# platform-net, kafka:9092), donde kafka-init ya crea los topics
+# bc1..bc5.*.eventos. Asi BC2 publica y consume en el mismo broker que los
+# demas servicios.
+#
+# PRE-REQUISITOS:
+#   - Docker Engine >= 24 y Docker Compose V2
+#
+# USO:
+#   1. Copiar el archivo de variables de entorno:
+#        cp .env.example .env
+#
+#   2a. Solo BC2, sin Kafka (KAFKA_ENABLED=false en .env): los eventos quedan
+#       PENDIENTES en outbox_event y se publican cuando se active Kafka.
+#        docker compose up -d --build
+#
+#   2b. Con el stack del grupo (KAFKA_ENABLED=true): desde nur_proy_final/,
+#       el docker-compose.yml raiz incluye este archivo junto a la plataforma.
+#        docker compose up -d
+#
+#   3. Ver logs de la aplicacion:
+#        docker compose logs -f nutrition-app
+#
+# La base se crea con db/FOOD_CREATION.sql (esquema + datos de ejemplo) y
+# db/V2__eventos_integracion_outbox.sql (outbox, inbox y copias locales de
+# BC1). MySQL solo los ejecuta cuando el volumen esta vacio; para recrearla:
+#   docker compose down --volumes
+# =============================================================================
+
+name: ms-nutrition-planner
+
 services:
 
   # ---------------------------------------------------------------------------
-  # MySQL: base de datos del microservicio (tambien guarda la tabla outbox_event
-  # del patron Transactional Outbox). El healthcheck evita que la app arranque
-  # antes de que MySQL acepte conexiones.
+  # 1) Base de datos MySQL (tambien guarda outbox_event e inbox_event)
   # ---------------------------------------------------------------------------
-  mysql:
+  nutrition-db:
     image: mysql:8.4
-    container_name: mysql-db
+    container_name: ms-nutrition-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: FOODV2
-      MYSQL_USER: grobles
-      MYSQL_PASSWORD: 12345678
+      TZ: America/La_Paz   # zona horaria de Bolivia (-04:00)
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3307:3306"
+      - "${MYSQL_HOST_PORT:-3307}:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - nutrition_mysql_data:/var/lib/mysql
+      # Se ejecutan en orden alfabetico solo con el volumen vacio
+      - ./db/FOOD_CREATION.sql:/docker-entrypoint-initdb.d/01_FOOD_CREATION.sql:ro
+      - ./db/V2__eventos_integracion_outbox.sql:/docker-entrypoint-initdb.d/02_V2__eventos_integracion_outbox.sql:ro
+    networks:
+      - nutrition-net
+    # 127.0.0.1 (TCP) y no localhost (socket): mientras corren los scripts de
+    # initdb MySQL levanta un servidor temporal sin red que ya responde por el
+    # socket; asi la app no arranca hasta que la base este completa.
+    # El primer arranque (crear la base + scripts) puede tardar varios minutos.
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot123 --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 20s
+      retries: 30
+      start_period: 300s
 
   # ---------------------------------------------------------------------------
-  # Kafka en modo KRaft (sin Zookeeper): un solo nodo que es broker y controller.
-  # Dos listeners:
-  #   - INTERNAL  kafka:29092     -> para los contenedores de esta red (nutrition-app)
-  #   - EXTERNAL  localhost:9092  -> para herramientas desde tu maquina (kafka-ui, consola)
-  # Los topics los crea la propia aplicacion al arrancar (KafkaConfig / NewTopic);
-  # ademas se permite la autocreacion para pruebas manuales.
+  # 2) API (puerto 7000). Por el gateway: http://localhost:8000/nutricion/**
   # ---------------------------------------------------------------------------
-  kafka:
-    image: apache/kafka:3.9.0
-    container_name: nutrition-kafka
-    restart: unless-stopped
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      # Un solo broker: los topics internos no pueden tener factor de replicacion > 1
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
-      interval: 10s
-      timeout: 10s
-      retries: 20
-      start_period: 30s
-
-  # ---------------------------------------------------------------------------
-  # Kafka UI (opcional): ver topics y mensajes en http://localhost:8085
-  # ---------------------------------------------------------------------------
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: nutrition-kafka-ui
-    restart: unless-stopped
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8085:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: nutrition-local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-
   nutrition-app:
-    image: ms-nutrition-planner:latest
-    container_name: nutrition-app
+    build: .
+    image: ${APP_IMAGE:-ms-nutrition-planner:1.0.0}
+    container_name: ms-nutrition-app
     restart: unless-stopped
     depends_on:
-      mysql:
+      nutrition-db:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
-    ports:
-      - "7000:7000"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/FOODV2?useUnicode=true&characterEncoding=UTF-8&serverTimezone=America/La_Paz
-      SPRING_DATASOURCE_USERNAME: grobles
-      SPRING_DATASOURCE_PASSWORD: 12345678
+      TZ: America/La_Paz   # zona horaria de Bolivia (-04:00)
+      SPRING_DATASOURCE_URL: jdbc:mysql://nutrition-db:3306/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=America/La_Paz
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       # --- Mensajeria (Actividad 2) ---
       # Activa el relay del outbox y los listeners. Con false la app funciona
       # igual y los eventos quedan pendientes en outbox_event.
-      KAFKA_ENABLED: "true"
-      # Dentro de la red de Docker se usa el listener INTERNAL del broker
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      # Kafka de la plataforma (listener interno de platform-net)
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: bc2.nutricion.eventos
       KAFKA_TOPIC_PACIENTES: bc1.pacientes.eventos
       KAFKA_TOPIC_CATERING: bc3.catering.eventos
+    ports:
+      - "${APP_HOST_PORT:-7000}:7000"
+    networks:
+      - nutrition-net
+      # Red de la plataforma: alcanza Kafka y el gateway (redeclarada abajo
+      # para que este archivo siga siendo valido por si solo)
+      - platform-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7000/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
 volumes:
-  mysql_data:
-  kafka_data:
+  nutrition_mysql_data:
+    driver: local
+
+networks:
+  nutrition-net:
+    driver: bridge
+  platform-net:
